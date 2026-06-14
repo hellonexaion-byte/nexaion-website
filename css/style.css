@@ -1,1 +1,153 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
 
+body{
+    background:#050816;
+    color:white;
+    overflow-x:hidden;
+}
+
+.navbar{
+    position:fixed;
+    width:100%;
+    top:0;
+    z-index:1000;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:25px 8%;
+    backdrop-filter:blur(15px);
+    background:rgba(5,8,22,0.65);
+}
+
+.logo{
+    font-size:1.8rem;
+    font-weight:700;
+    letter-spacing:2px;
+}
+
+.nav-links{
+    display:flex;
+    list-style:none;
+    gap:30px;
+}
+
+.nav-links a{
+    color:white;
+    text-decoration:none;
+    transition:.3s;
+}
+
+.nav-links a:hover{
+    color:#00D4FF;
+}
+
+.hero{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:0 20px;
+    background:
+    radial-gradient(circle at 20% 20%, rgba(0,212,255,.15), transparent 40%),
+    radial-gradient(circle at 80% 30%, rgba(124,58,237,.15), transparent 40%),
+    #050816;
+}
+
+.hero-content{
+    max-width:900px;
+}
+
+.hero h1{
+    font-size:5rem;
+    margin-bottom:20px;
+    background:linear-gradient(90deg,#00D4FF,#7C3AED);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+.hero h2{
+    font-size:2rem;
+    margin-bottom:25px;
+    color:#d8d8d8;
+}
+
+.hero p{
+    font-size:1.1rem;
+    line-height:1.8;
+    color:#b6c0d0;
+}
+
+.hero-buttons{
+    margin-top:40px;
+}
+
+.btn-primary,
+.btn-secondary{
+    padding:14px 28px;
+    border:none;
+    border-radius:50px;
+    cursor:pointer;
+    font-size:1rem;
+    margin:10px;
+}
+
+.btn-primary{
+    background:linear-gradient(90deg,#00D4FF,#7C3AED);
+    color:white;
+}
+
+.btn-secondary{
+    background:transparent;
+    border:1px solid rgba(255,255,255,.2);
+    color:white;
+}
+
+.products{
+    padding:120px 8%;
+}
+
+.products h2{
+    text-align:center;
+    font-size:3rem;
+    margin-bottom:60px;
+}
+
+.product-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:30px;
+}
+
+.card{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08);
+    backdrop-filter:blur(20px);
+    border-radius:20px;
+    padding:30px;
+    transition:.3s;
+}
+
+.card:hover{
+    transform:translateY(-10px);
+    border-color:#00D4FF;
+}
+
+.card h3{
+    margin-bottom:15px;
+}
+
+.card p{
+    color:#c0cad8;
+}
+
+footer{
+    text-align:center;
+    padding:60px 20px;
+    border-top:1px solid rgba(255,255,255,.08);
+}
