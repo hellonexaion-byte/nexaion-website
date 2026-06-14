@@ -501,3 +501,241 @@ body{
 
     font-size:1.1rem;
 }
+/* =====================================
+   CONTACT
+===================================== */
+
+.contact{
+    padding:120px 8%;
+    max-width:900px;
+    margin:auto;
+}
+
+.contact form{
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+}
+
+.contact input,
+.contact textarea{
+    width:100%;
+
+    padding:18px 20px;
+
+    border-radius:14px;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    background:#121212;
+
+    color:#ffffff;
+
+    font-size:1rem;
+
+    outline:none;
+
+    transition:.3s;
+}
+
+.contact input:focus,
+.contact textarea:focus{
+    border-color:#8a8a8a;
+}
+
+.contact textarea{
+    resize:vertical;
+}
+
+.contact .btn-primary{
+    border:none;
+    cursor:pointer;
+    width:220px;
+}
+
+.contact-email{
+    margin-top:40px;
+
+    text-align:center;
+
+    color:#bdbdbd;
+
+    font-size:1.05rem;
+}
+
+/* =====================================
+   FOOTER
+===================================== */
+
+footer{
+    margin-top:100px;
+
+    padding:70px 20px;
+
+    text-align:center;
+
+    border-top:1px solid rgba(255,255,255,.06);
+
+    background:#050505;
+}
+
+.footer-logo{
+    font-size:1.6rem;
+
+    font-weight:800;
+
+    letter-spacing:4px;
+
+    margin-bottom:15px;
+
+    color:#dcdcdc;
+}
+
+footer p{
+    color:#8d8d8d;
+    margin:10px 0;
+}
+
+/* =====================================
+   PREMIUM EFFECTS
+===================================== */
+
+.card,
+.service-card,
+.capability{
+    backdrop-filter:blur(12px);
+}
+
+.hero::after{
+    content:"";
+
+    position:absolute;
+
+    width:700px;
+    height:700px;
+
+    right:-250px;
+    top:50%;
+
+    transform:translateY(-50%);
+
+    background:
+    radial-gradient(
+        circle,
+        rgba(255,255,255,.04),
+        transparent 70%
+    );
+
+    pointer-events:none;
+}
+
+/* =====================================
+   MOBILE
+===================================== */
+
+@media(max-width:1100px){
+
+    .hero{
+        flex-direction:column;
+        text-align:center;
+        padding-top:140px;
+    }
+
+    .hero-content{
+        width:100%;
+    }
+
+    .hero-visual{
+        width:100%;
+        margin-top:60px;
+    }
+
+    .hero-buttons{
+        justify-content:center;
+    }
+
+    .hero h1{
+        font-size:4rem;
+    }
+}
+
+@media(max-width:900px){
+
+    .navbar{
+        flex-direction:column;
+        gap:20px;
+    }
+
+    .nav-links{
+        flex-wrap:wrap;
+        justify-content:center;
+    }
+
+    .capabilities{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .hero h1{
+        font-size:3.2rem;
+    }
+
+    .section-title h2{
+        font-size:2.3rem;
+    }
+
+    .globe-container{
+        width:360px;
+        height:360px;
+    }
+
+    .orbit-1{
+        width:180px;
+        height:180px;
+    }
+
+    .orbit-2{
+        width:260px;
+        height:260px;
+    }
+
+    .orbit-3{
+        width:340px;
+        height:340px;
+    }
+
+    .globe-core{
+        width:120px;
+        height:120px;
+    }
+}
+
+@media(max-width:600px){
+
+    .capabilities{
+        grid-template-columns:1fr;
+    }
+
+    .hero h1{
+        font-size:2.5rem;
+    }
+
+    .hero p{
+        font-size:1rem;
+    }
+
+    .hero-buttons{
+        flex-direction:column;
+        align-items:center;
+    }
+
+    .btn-primary,
+    .btn-secondary{
+        width:240px;
+        text-align:center;
+    }
+
+    .globe-container{
+        width:280px;
+        height:280px;
+    }
+}
