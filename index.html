@@ -7,63 +7,83 @@
 <title>Nexaion | Connected For Eternity</title>
 
 <link rel="stylesheet" href="css/style.css">
+
+<meta name="description"
+content="Nexaion builds innovative technology solutions for publishers, advertisers and digital businesses.">
+
 </head>
 
 <body>
 
 <nav class="navbar">
-    <div class="logo">NEXAION</div>
+
+    <div class="logo">
+        NEXAION
+    </div>
 
     <ul class="nav-links">
-        <li><a href="#">Home</a></li>
 
-        <li class="dropdown">
-            <a href="#">Products ▾</a>
+        <li><a href="#home">Home</a></li>
+
+        <li>
+            <a href="#products">Products</a>
         </li>
 
-        <li><a href="#">Services</a></li>
-        <li><a href="#">About</a></li>
-        <li><a href="#">Contact</a></li>
+        <li>
+            <a href="#about">About</a>
+        </li>
+
+        <li>
+            <a href="#contact">Contact</a>
+        </li>
+
     </ul>
+
 </nav>
 
-<section class="hero">
+<!-- HERO -->
+
+<section class="hero" id="home">
 
     <div class="hero-content">
 
-        <h1>Connected For Eternity</h1>
+        <div class="eyebrow">
+            CONNECTED FOR ETERNITY
+        </div>
 
-        <h2>Building the Future of Digital Growth</h2>
+        <h1>
+            Building the Future of Digital Growth
+        </h1>
 
         <p>
-            Nexaion develops innovative technology solutions that empower
+            Nexaion develops advanced technology solutions that empower
             publishers, advertisers and businesses through automation,
             analytics and intelligent growth.
         </p>
 
         <div class="hero-buttons">
-            <button class="btn-primary">Explore Products</button>
-            <button class="btn-secondary">Contact Us</button>
+
+            <a href="#products" class="btn-primary">
+                Explore Products
+            </a>
+
+            <a href="#contact" class="btn-secondary">
+                Contact Us
+            </a>
+
         </div>
 
     </div>
 
     <div class="hero-visual">
 
-        <div class="network">
+        <div class="orb">
 
-            <span class="node n1"></span>
-            <span class="node n2"></span>
-            <span class="node n3"></span>
-            <span class="node n4"></span>
-            <span class="node n5"></span>
-            <span class="node n6"></span>
+            <div class="core"></div>
 
-            <div class="line l1"></div>
-            <div class="line l2"></div>
-            <div class="line l3"></div>
-            <div class="line l4"></div>
-            <div class="line l5"></div>
+            <span class="ring ring1"></span>
+            <span class="ring ring2"></span>
+            <span class="ring ring3"></span>
 
         </div>
 
@@ -71,51 +91,158 @@
 
 </section>
 
-<section class="products">
+<!-- PRODUCTS -->
 
-    <h2>Featured Products</h2>
+<section class="products" id="products">
+
+    <h2>Products</h2>
 
     <div class="product-grid">
 
-        <div class="card">
+        <a class="card"
+           href="products/adstxt-crawler.html">
+
             <h3>Ads.txt Crawler</h3>
+
             <p>
                 Monitor, validate and analyze publisher ads.txt files
-                with powerful automation and reporting.
+                at scale.
             </p>
-        </div>
 
-        <div class="card">
+        </a>
+
+        <a class="card"
+           href="products/affiliate-marketing.html">
+
             <h3>Affiliate Marketing</h3>
+
             <p>
                 Scale partnerships, track campaigns and maximize
-                revenue growth.
+                performance.
             </p>
-        </div>
 
-        <div class="card">
+        </a>
+
+        <a class="card"
+           href="products/publisher-intelligence.html">
+
             <h3>Publisher Intelligence</h3>
-            <p>
-                Advanced publisher analytics, inventory visibility
-                and market insights.
-            </p>
-        </div>
 
-        <div class="card">
-            <h3>AI Solutions</h3>
             <p>
-                Intelligent automation and AI-powered optimization
-                for digital businesses.
+                Gain deeper insights into inventory, traffic and
+                monetization opportunities.
             </p>
-        </div>
+
+        </a>
+
+        <a class="card"
+           href="products/ai-solutions.html">
+
+            <h3>AI Solutions</h3>
+
+            <p>
+                Intelligent automation and AI-powered growth tools.
+            </p>
+
+        </a>
 
     </div>
+
+</section>
+
+<!-- STATS -->
+
+<section class="stats">
+
+    <div class="stat">
+        <h3>99.9%</h3>
+        <p>Platform Reliability</p>
+    </div>
+
+    <div class="stat">
+        <h3>24/7</h3>
+        <p>Monitoring</p>
+    </div>
+
+    <div class="stat">
+        <h3>Global</h3>
+        <p>Infrastructure</p>
+    </div>
+
+    <div class="stat">
+        <h3>Enterprise</h3>
+        <p>Security</p>
+    </div>
+
+</section>
+
+<!-- ABOUT -->
+
+<section class="about" id="about">
+
+    <h2>About Nexaion</h2>
+
+    <p>
+
+        Nexaion is focused on building innovative digital products
+        that connect publishers, advertisers and businesses through
+        scalable technology.
+
+        Our mission is to create intelligent platforms that drive
+        sustainable digital growth.
+
+    </p>
+
+</section>
+
+<!-- CONTACT -->
+
+<section class="contact" id="contact">
+
+    <h2>Reach Out</h2>
+
+    <form>
+
+        <input
+        type="text"
+        placeholder="Name">
+
+        <input
+        type="email"
+        placeholder="Email">
+
+        <input
+        type="text"
+        placeholder="Company">
+
+        <textarea
+        rows="6"
+        placeholder="Tell us about your project"></textarea>
+
+        <button
+        type="submit"
+        class="btn-primary">
+
+            Send Inquiry
+
+        </button>
+
+    </form>
 
 </section>
 
 <footer>
+
     <h3>Nexaion</h3>
-    <p>Connected For Eternity</p>
+
+    <p>
+        Connected For Eternity
+    </p>
+
+    <p>
+        © 2026 Nexaion. All rights reserved.
+    </p>
+
 </footer>
 
 <script src="js/app.js"></script>
