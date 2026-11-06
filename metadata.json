@@ -1,0 +1,7 @@
+{
+  "name": "Nexaion | Advertising Intelligence & Supply Chain Infrastructure",
+  "description": "Enterprise intelligence platform for digital advertising companies. High-velocity ads.txt crawler, programmatic yield telemetry, supply path audits, and performance verification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

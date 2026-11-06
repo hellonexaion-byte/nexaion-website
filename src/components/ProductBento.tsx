@@ -42,11 +42,25 @@ export const ProductBento: React.FC<ProductBentoProps> = ({ onOpenAuditModal }) 
               </div>
               
               <h3 className="text-2xl font-bold text-white font-display mb-3">
-                Ads.txt & App-Ads.txt Automated Crawler
+                Ads.txt & App-Ads.txt Automated Crawler & Forensic Matcher
               </h3>
               <p className="text-neutral-300 text-sm leading-relaxed max-w-xl mb-4">
-                Deployed and live at <a href="https://crawler.nexaion.net" target="_blank" rel="noreferrer" className="text-emerald-400 font-mono font-medium hover:underline">crawler.nexaion.net</a> on Cloudflare. High-velocity crawler scanning publisher domains and CTV/mobile app-ads.txt endpoints around the clock. Automatically alerts teams to unauthorized reseller insertions, domain spoofing attacks, and deprecated exchange entries.
+                Deployed and live at <a href="https://crawler.nexaion.net" target="_blank" rel="noreferrer" className="text-emerald-400 font-mono font-medium hover:underline">crawler.nexaion.net</a> on Cloudflare Edge. Serving two dedicated enterprise programmatic workflows:
               </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 text-xs font-mono">
+                <div className="p-3 rounded-lg bg-neutral-950/80 border border-neutral-800">
+                  <span className="text-emerald-400 font-semibold block mb-1">🏢 For Publishers & App Devs</span>
+                  <p className="text-neutral-400 text-[11px] leading-relaxed">
+                    Full origin file audit, take-rate loss calculation (-3.2% to -18%), visual supply chain hop graph, and clean IAB 1.1 manifest export.
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-neutral-950/80 border border-neutral-800">
+                  <span className="text-emerald-400 font-semibold block mb-1">⚡ For Ad Networks & SSPs</span>
+                  <p className="text-neutral-400 text-[11px] leading-relaxed">
+                    Batch partner line verification, 4-point element match breakdown (domain, seller ID, relationship, cert ID), and one-click 25-column CSV download.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Visual element with high-res infrastructure photo */}

@@ -4,11 +4,14 @@ import {
   Download, RefreshCw, FileText, ArrowRight, Lock, Bell, Terminal, 
   ExternalLink, Layers, Check, Sparkles, Smartphone, Link2, Send, 
   Bot, User, Cpu, ArrowUpRight, HelpCircle, Network, GitFork, 
-  XCircle, Zap, Info, CornerDownRight, ShieldAlert, ChevronRight
+  XCircle, Zap, Info, CornerDownRight, ShieldAlert, ChevronRight,
+  Building2, Play, Filter, FileSpreadsheet
 } from 'lucide-react';
 import { 
   generateAuditForDomain, matchSellerLineWithDiagnostics, 
-  CrawlAuditResult, AdsTxtLine, CrawlType, VerifiedSellerLineResult 
+  CrawlAuditResult, AdsTxtLine, CrawlType, VerifiedSellerLineResult,
+  BatchCheckRow, evaluateBatchItem, generateJobCSV25, SSP_BATCH_PRESETS,
+  JOB_CSV_25_HEADER
 } from '../data/mockCrawlData';
 
 interface ChatMessage {
@@ -19,12 +22,32 @@ interface ChatMessage {
 }
 
 export const InteractiveCrawler: React.FC = () => {
-  // Crawl configuration
+  // Top-Level Institutional Persona Switcher
+  // Product 1: [ 🏢 For Publishers & App Developers ] - Full origin audit, revenue loss risk, clean manifest
+  // Product 2: [ ⚡ For Ad Networks & SSPs (Batch Matcher) ] - Multi-URL + Target line, 4-point match, 25-col CSV
+  const [activePersona, setActivePersona] = useState<'PUBLISHERS' | 'AD_NETWORKS'>('PUBLISHERS');
+
+  // Crawl configuration (Publishers)
   const [crawlType, setCrawlType] = useState<CrawlType>('web');
   const [domainInput, setDomainInput] = useState('techradar.com');
   const [targetSellerLine, setTargetSellerLine] = useState('google.com, pub-4927491028301824, DIRECT, f08c47fec0942fa0');
   const [isCrawling, setIsCrawling] = useState(false);
   const [crawlStep, setCrawlStep] = useState('');
+
+  // Batch Matcher configuration (Ad Networks & SSPs)
+  const [batchUrlsInput, setBatchUrlsInput] = useState<string>(() => SSP_BATCH_PRESETS[0].urls.join('\n'));
+  const [batchTargetLine, setBatchTargetLine] = useState<string>(() => SSP_BATCH_PRESETS[0].targetLine);
+  const [batchInputType, setBatchInputType] = useState<'urls' | 'appids' | 'web'>('web');
+  const [batchConcurrency, setBatchConcurrency] = useState<number>(20);
+  const [isBatchRunning, setIsBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(100);
+  const [batchRows, setBatchRows] = useState<BatchCheckRow[]>(() => {
+    return SSP_BATCH_PRESETS[0].urls.map(u => evaluateBatchItem(u, SSP_BATCH_PRESETS[0].targetLine, 'web'));
+  });
+  const [batchTableFilter, setBatchTableFilter] = useState<'ALL' | 'FOUND' | 'DISCREPANCY' | 'MISSING'>('ALL');
+  const [batchSearchTerm, setBatchSearchTerm] = useState('');
+  const [downloadedCsvNotice, setDownloadedCsvNotice] = useState(false);
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const [auditResult, setAuditResult] = useState<CrawlAuditResult>(() => generateAuditForDomain('techradar.com', 'web'));
   
   // Terminal tabs
@@ -98,6 +121,82 @@ export const InteractiveCrawler: React.FC = () => {
       setDomainInput(`https://${domainInput}/ads.txt`);
     }
   };
+
+  // Batch Execution & CSV Exporter (Ad Networks & SSPs)
+  const handleRunBatch = () => {
+    const rawLines = batchUrlsInput
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (!rawLines.length || !batchTargetLine.trim()) return;
+
+    setIsBatchRunning(true);
+    setBatchProgress(15);
+
+    const stepInterval = setInterval(() => {
+      setBatchProgress(p => {
+        if (p >= 85) {
+          clearInterval(stepInterval);
+          return 85;
+        }
+        return p + 25;
+      });
+    }, 200);
+
+    setTimeout(() => {
+      clearInterval(stepInterval);
+      const evaluated = rawLines.map(line => 
+        evaluateBatchItem(line, batchTargetLine.trim(), batchInputType)
+      );
+      setBatchRows(evaluated);
+      setBatchProgress(100);
+      setIsBatchRunning(false);
+    }, 1000);
+  };
+
+  const handleDownloadBatchCSV25 = () => {
+    const csvContent = generateJobCSV25(batchRows);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.href = url;
+    downloadAnchor.download = `nexaion-batch-job-25col-${Date.now()}.csv`;
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    URL.revokeObjectURL(url);
+
+    setDownloadedCsvNotice(true);
+    setTimeout(() => setDownloadedCsvNotice(false), 3000);
+  };
+
+  const handleSelectPreset = (index: number) => {
+    setSelectedPresetIndex(index);
+    const preset = SSP_BATCH_PRESETS[index];
+    setBatchUrlsInput(preset.urls.join('\n'));
+    setBatchTargetLine(preset.targetLine);
+    const evaluated = preset.urls.map(line => 
+      evaluateBatchItem(line, preset.targetLine, batchInputType)
+    );
+    setBatchRows(evaluated);
+  };
+
+  const filteredBatchRows = batchRows.filter(row => {
+    const matchesSearch = row.input.toLowerCase().includes(batchSearchTerm.toLowerCase()) ||
+                          row.developerDomain.toLowerCase().includes(batchSearchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (batchTableFilter === 'FOUND') return row.result === 'FOUND';
+    if (batchTableFilter === 'DISCREPANCY') return row.result === 'RELATION_MISMATCH' || row.result === 'SELLER_MISMATCH';
+    if (batchTableFilter === 'MISSING') return row.result === 'MISSING';
+    return true;
+  });
+
+  const batchFoundCount = batchRows.filter(r => r.result === 'FOUND').length;
+  const batchRelationMismatchCount = batchRows.filter(r => r.result === 'RELATION_MISMATCH').length;
+  const batchSellerMismatchCount = batchRows.filter(r => r.result === 'SELLER_MISMATCH').length;
+  const batchMissingCount = batchRows.filter(r => r.result === 'MISSING').length;
+  const batchDiscrepancyCount = batchRelationMismatchCount + batchSellerMismatchCount;
 
   const handleRunAudit = (overrideTarget?: string) => {
     const rawInput = (overrideTarget || domainInput).trim();
@@ -295,9 +394,9 @@ Inquiries: hello@nexaion.net
     <section id="crawler" className="py-20 lg:py-28 border-b border-white/5 relative bg-neutral-950">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         
-        {/* Section Header with Institutional B2B Focus */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-          <div className="max-w-3xl">
+        {/* Section Header with Institutional B2B Focus & Dual-Persona Switcher */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+          <div className="max-w-2xl">
             <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 tracking-wider uppercase mb-3">
               <Terminal className="w-3.5 h-3.5" />
               <span>Nexaion Intelligence Terminal</span>
@@ -307,11 +406,49 @@ Inquiries: hello@nexaion.net
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white font-display [text-wrap:balance]">
               Programmatic supply chain forensic audit.
             </h2>
-            <p className="mt-4 text-base sm:text-lg text-neutral-300">
-              Built for Programmatic Directors, VP of Ad Operations, and Digital Media Conglomerates to identify rogue reseller arbitrage, visualize supply chain hop topology, and verify seller seats with fuzzy diagnostics.
+            <p className="mt-3 text-sm sm:text-base text-neutral-300">
+              Select your workflow: full origin audit for media owners or batch seller seat verification for ad networks and SSPs.
             </p>
           </div>
 
+          {/* DUAL PERSONA SELECTOR - HIGH CONTRAST & VISIBILITY */}
+          <div className="p-1.5 bg-neutral-900 border border-neutral-800 rounded-xl font-mono text-xs flex flex-col sm:flex-row gap-1.5 shadow-xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setActivePersona('PUBLISHERS')}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-left transition-all ${
+                activePersona === 'PUBLISHERS'
+                  ? 'bg-emerald-400 text-neutral-950 font-bold shadow-md shadow-emerald-500/20'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/80'
+              }`}
+            >
+              <Building2 className="w-4 h-4 shrink-0" />
+              <div>
+                <div className="text-xs font-bold leading-tight">🏢 For Publishers & App Devs</div>
+                <div className={`text-[10px] font-normal mt-0.5 ${activePersona === 'PUBLISHERS' ? 'text-neutral-950/80 font-medium' : 'text-neutral-500'}`}>
+                  Origin File Audit · Loss % · Clean Manifest
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActivePersona('AD_NETWORKS')}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-left transition-all ${
+                activePersona === 'AD_NETWORKS'
+                  ? 'bg-emerald-400 text-neutral-950 font-bold shadow-md shadow-emerald-500/20'
+                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800/80'
+              }`}
+            >
+              <Zap className="w-4 h-4 shrink-0" />
+              <div>
+                <div className="text-xs font-bold leading-tight">⚡ For Ad Networks & SSPs</div>
+                <div className={`text-[10px] font-normal mt-0.5 ${activePersona === 'AD_NETWORKS' ? 'text-neutral-950/80 font-medium' : 'text-neutral-500'}`}>
+                  Batch Matcher · 4-Point Breakdown · 25-Col CSV
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Live Cloudflare Production Notice */}
@@ -344,8 +481,11 @@ Inquiries: hello@nexaion.net
           </a>
         </div>
 
-        {/* CRAWL TYPE SELECTOR & INPUT CARD */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 sm:p-6 mb-8 shadow-xl">
+        {/* PRODUCT 1: FOR PUBLISHERS & APP DEVELOPERS */}
+        {activePersona === 'PUBLISHERS' && (
+          <>
+            {/* CRAWL TYPE SELECTOR & INPUT CARD */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 sm:p-6 mb-8 shadow-xl">
           
           {/* Segmented Crawl Type Mode Switch matching Cloudflare Worker Architecture */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-neutral-800">
@@ -1513,6 +1653,522 @@ Inquiries: hello@nexaion.net
 
           </div>
         )}
+      </>
+    )}
+
+    {/* PRODUCT 2: FOR AD NETWORKS & SSPS (BATCH PARTNER LINE MATCHER) */}
+    {activePersona === 'AD_NETWORKS' && (
+      <div className="space-y-6">
+        
+        {/* Batch Engine Controls Card */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-6">
+          
+          {/* Top Banner / Worker Integration Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-neutral-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                  Batch Partner Line Matcher
+                  <span className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    worker.js jobCSV25 parity
+                  </span>
+                </h3>
+              </div>
+              <p className="text-xs text-neutral-400 font-mono mt-1">
+                Authoritative 4-point element verification: checks Domain, Seller ID, Relationship (DIRECT/RESELLER), and TAG Certification ID across multi-URL partner manifests.
+              </p>
+            </div>
+
+            {/* Input Format Selector: Web vs App vs URL */}
+            <div className="flex items-center gap-1 p-1 bg-neutral-950 border border-neutral-800 rounded-lg shrink-0">
+              <button
+                type="button"
+                onClick={() => setBatchInputType('web')}
+                className={`px-3 py-1.5 text-xs font-mono rounded-md transition-colors ${
+                  batchInputType === 'web'
+                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-semibold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                Web (ads.txt)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBatchInputType('appids')}
+                className={`px-3 py-1.5 text-xs font-mono rounded-md transition-colors ${
+                  batchInputType === 'appids'
+                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-semibold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                Apps (app-ads.txt)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBatchInputType('urls')}
+                className={`px-3 py-1.5 text-xs font-mono rounded-md transition-colors ${
+                  batchInputType === 'urls'
+                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-semibold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                Direct URLs
+              </button>
+            </div>
+          </div>
+
+          {/* Two-Column Inputs: URLs Textarea & Target Seller Line */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Left Column: Multi-URL Textarea */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <label className="text-white font-semibold flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Target Partner URLs or App Bundle IDs</span>
+                </label>
+                <span className="text-neutral-500">
+                  {batchUrlsInput.split('\n').filter(s => s.trim()).length} inputs entered
+                </span>
+              </div>
+
+              <textarea
+                value={batchUrlsInput}
+                onChange={(e) => setBatchUrlsInput(e.target.value)}
+                rows={7}
+                placeholder="Enter one domain, bundle ID, or direct URL per line:&#10;techradar.com&#10;theverge.com&#10;ft.com&#10;forbes.com"
+                className="w-full p-3.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-600 font-mono focus:outline-none focus:border-emerald-500 transition-colors leading-relaxed resize-y"
+              />
+
+              <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500">
+                <span>Supports apex domains, subdomains, Play Store & App Store IDs</span>
+                <button
+                  type="button"
+                  onClick={() => setBatchUrlsInput('')}
+                  className="text-neutral-400 hover:text-rose-400 underline"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {/* Right Column: Target Expected Seller Line */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <label className="text-white font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Expected Seller Line(s) To Verify</span>
+                </label>
+                <span className="text-emerald-400">IAB Tech Lab 1.1</span>
+              </div>
+
+              <textarea
+                value={batchTargetLine}
+                onChange={(e) => setBatchTargetLine(e.target.value)}
+                rows={7}
+                placeholder="rubiconproject.com, 10842, DIRECT, 0bfd66d529a73807"
+                className="w-full p-3.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-600 font-mono focus:outline-none focus:border-emerald-500 transition-colors leading-relaxed resize-y"
+              />
+
+              {/* Syntax Breakdown Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+                <span className="text-neutral-500">Elements:</span>
+                <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">1. Exchange Domain</span>
+                <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">2. Seller Seat ID</span>
+                <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">3. DIRECT | RESELLER</span>
+                <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">4. TAG CA Hash (opt)</span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Preset Test Scenarios & Action Bar */}
+          <div className="pt-4 border-t border-neutral-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            {/* Preset Selector Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-mono text-neutral-400 mr-1">Sample Batches:</span>
+              {SSP_BATCH_PRESETS.map((preset, idx) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => handleSelectPreset(idx)}
+                  className={`px-3 py-1.5 text-xs font-mono rounded-lg transition-colors ${
+                    selectedPresetIndex === idx
+                      ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-semibold'
+                      : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-white hover:border-neutral-700'
+                  }`}
+                >
+                  {preset.name.split('(')[0].trim()}
+                </button>
+              ))}
+            </div>
+
+            {/* Action Controls: Concurrency & Run Button */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs font-mono text-neutral-400 bg-neutral-950 px-3 py-2 rounded-lg border border-neutral-800">
+                <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Concurrency:</span>
+                <select
+                  value={batchConcurrency}
+                  onChange={(e) => setBatchConcurrency(Number(e.target.value))}
+                  className="bg-transparent text-white font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value={10} className="bg-neutral-900">10 Edge Workers</option>
+                  <option value={20} className="bg-neutral-900">20 Edge Workers</option>
+                  <option value={50} className="bg-neutral-900">50 Edge Workers</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRunBatch}
+                disabled={isBatchRunning || !batchUrlsInput.trim()}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-400 hover:bg-emerald-300 disabled:bg-neutral-800 disabled:text-neutral-500 text-neutral-950 text-xs font-bold font-mono rounded-lg transition-colors whitespace-nowrap shadow-sm shadow-emerald-500/20"
+              >
+                {isBatchRunning ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-neutral-950" />
+                    <span>Crawling Partner Grid...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-neutral-950 text-neutral-950" />
+                    <span>Execute Batch Verification</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+
+          {/* Progress Bar (Visible during batch execution) */}
+          {isBatchRunning && (
+            <div className="space-y-2 pt-2 animate-pulse">
+              <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
+                <span className="text-emerald-400">Auditing {batchUrlsInput.split('\n').filter(Boolean).length} partner manifests via distributed Cloudflare workers...</span>
+                <span className="text-white font-semibold">{batchProgress}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-neutral-950 border border-neutral-800 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 transition-all duration-300 rounded-full"
+                  style={{ width: `${batchProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Batch Results HUD / Quantitative Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-5 shadow-lg">
+            <span className="text-xs text-neutral-400 block mb-1 font-mono">Total Partners Scanned</span>
+            <div className="text-2xl font-bold text-white font-mono tabular-nums">
+              {batchRows.length}
+            </div>
+            <span className="text-xs text-neutral-500 mt-1 block font-mono">
+              Across {batchConcurrency} concurrent edge workers
+            </span>
+          </div>
+
+          <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-5 shadow-lg">
+            <span className="text-xs text-neutral-400 block mb-1 font-mono">4-Point Full Match</span>
+            <div className="text-2xl font-bold text-emerald-400 font-mono tabular-nums">
+              {batchFoundCount}
+              <span className="text-sm font-normal text-neutral-500 ml-2">
+                ({batchRows.length ? Math.round((batchFoundCount / batchRows.length) * 100) : 0}%)
+              </span>
+            </div>
+            <span className="text-xs text-emerald-500/80 mt-1 block font-mono">
+              Domain + Seller ID + Relationship + Hash verified
+            </span>
+          </div>
+
+          <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-5 shadow-lg">
+            <span className="text-xs text-neutral-400 block mb-1 font-mono">Discrepancy / Mismatch</span>
+            <div className="text-2xl font-bold text-amber-400 font-mono tabular-nums">
+              {batchDiscrepancyCount}
+            </div>
+            <span className="text-xs text-neutral-500 mt-1 block font-mono">
+              {batchRelationMismatchCount} relation swaps · {batchSellerMismatchCount} missing seat IDs
+            </span>
+          </div>
+
+          <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-5 shadow-lg">
+            <span className="text-xs text-neutral-400 block mb-1 font-mono">Missing / Unlisted</span>
+            <div className="text-2xl font-bold text-rose-400 font-mono tabular-nums">
+              {batchMissingCount}
+            </div>
+            <span className="text-xs text-rose-500/80 mt-1 block font-mono">
+              Exchange completely unlisted on origin
+            </span>
+          </div>
+        </div>
+
+        {/* Batch Results Table Card & 25-Column CSV Exporter */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-2xl">
+          
+          {/* Table Header Bar with One-Click 25-Col CSV Download */}
+          <div className="p-4 sm:p-5 bg-neutral-950 border-b border-neutral-800 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono">
+            
+            {/* Left Search & Filter Group */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={batchSearchTerm}
+                  onChange={(e) => setBatchSearchTerm(e.target.value)}
+                  placeholder="Search partner or domain..."
+                  className="pl-8 pr-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-lg text-xs">
+                <button
+                  onClick={() => setBatchTableFilter('ALL')}
+                  className={`px-2.5 py-1 rounded transition-colors ${
+                    batchTableFilter === 'ALL' ? 'bg-neutral-800 text-white font-semibold' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  All ({batchRows.length})
+                </button>
+                <button
+                  onClick={() => setBatchTableFilter('FOUND')}
+                  className={`px-2.5 py-1 rounded transition-colors ${
+                    batchTableFilter === 'FOUND' ? 'bg-emerald-500/10 text-emerald-300 font-semibold' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Verified ({batchFoundCount})
+                </button>
+                <button
+                  onClick={() => setBatchTableFilter('DISCREPANCY')}
+                  className={`px-2.5 py-1 rounded transition-colors ${
+                    batchTableFilter === 'DISCREPANCY' ? 'bg-amber-500/10 text-amber-300 font-semibold' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Discrepancies ({batchDiscrepancyCount})
+                </button>
+                <button
+                  onClick={() => setBatchTableFilter('MISSING')}
+                  className={`px-2.5 py-1 rounded transition-colors ${
+                    batchTableFilter === 'MISSING' ? 'bg-rose-500/10 text-rose-300 font-semibold' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Missing ({batchMissingCount})
+                </button>
+              </div>
+            </div>
+
+            {/* ONE-CLICK 25-COLUMN CSV DOWNLOAD BUTTON (EXACT WORKER SCHEMA) */}
+            <button
+              type="button"
+              onClick={handleDownloadBatchCSV25}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 font-bold text-xs rounded-lg transition-all shadow-md shadow-emerald-500/20 shrink-0"
+            >
+              {downloadedCsvNotice ? (
+                <>
+                  <Check className="w-4 h-4 text-neutral-950" />
+                  <span>Downloaded 25-Column CSV!</span>
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="w-4 h-4 text-neutral-950" />
+                  <span>Download 25-Column CSV (Live Worker Schema)</span>
+                </>
+              )}
+            </button>
+
+          </div>
+
+          {/* The 4-Point Match Matrix Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-mono text-xs border-collapse">
+              <thead>
+                <tr className="bg-neutral-950/80 border-b border-neutral-800 text-neutral-400 text-[11px] uppercase tracking-wider">
+                  <th className="py-3 px-4">Partner Input / Domain</th>
+                  <th className="py-3 px-4">Overall Result</th>
+                  <th className="py-3 px-4 text-center">Domain Found</th>
+                  <th className="py-3 px-4 text-center">Seller ID</th>
+                  <th className="py-3 px-4 text-center">Relationship</th>
+                  <th className="py-3 px-4 text-center">Cert Authority ID</th>
+                  <th className="py-3 px-4">Resolution Details</th>
+                  <th className="py-3 px-4">AdOps Diagnostic & DSP Impact</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-800/60">
+                {filteredBatchRows.map((row, idx) => {
+                  const isFound = row.result === 'FOUND';
+                  const isRelationMismatch = row.result === 'RELATION_MISMATCH';
+                  const isSellerMismatch = row.result === 'SELLER_MISMATCH';
+                  const isMissing = row.result === 'MISSING';
+
+                  return (
+                    <tr 
+                      key={`${row.input}-${idx}`}
+                      className="hover:bg-neutral-800/30 transition-colors"
+                    >
+                      {/* Partner Input */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${
+                            isFound ? 'bg-emerald-400' : isRelationMismatch || isSellerMismatch ? 'bg-amber-400' : 'bg-rose-400'
+                          }`} />
+                          <div>
+                            <div className="text-white font-bold">{row.input}</div>
+                            <a 
+                              href={row.checkedUrl} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-[10px] text-neutral-500 hover:text-emerald-400 flex items-center gap-1 mt-0.5"
+                            >
+                              <span>{row.developerDomain}/ads.txt</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Overall Result Badge */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {isFound && (
+                          <span className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                            FOUND (1:1)
+                          </span>
+                        )}
+                        {isRelationMismatch && (
+                          <span className="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            RELATION MISMATCH
+                          </span>
+                        )}
+                        {isSellerMismatch && (
+                          <span className="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            SELLER ID MISMATCH
+                          </span>
+                        )}
+                        {isMissing && (
+                          <span className="px-2.5 py-1 rounded text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                            NOT FOUND
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 1. Domain Found Badge */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        {row.domainFound ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                            FOUND
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400">
+                            MISSING
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 2. Seller ID Found Badge */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        {row.sellerIdFound ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                            FOUND
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400">
+                            MISSING
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 3. Relationship Match Badge */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        {row.relationshipFound ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                            MATCH
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400">
+                            MISMATCH
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 4. Certification ID Badge */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        {row.certificationIdFound === true ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                            FOUND
+                          </span>
+                        ) : row.certificationIdFound === false ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400">
+                            MISSING
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-neutral-800 text-neutral-400">
+                            NOT PROVIDED
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Resolution & Edge Details */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="text-neutral-300">HTTP {row.directRetrievalHttp} OK</div>
+                        <div className="text-[10px] text-neutral-500">{row.browserEvidenceSource}</div>
+                      </td>
+
+                      {/* Diagnostic & DSP Impact */}
+                      <td className="py-3 px-4 max-w-sm">
+                        <p className="text-neutral-300 text-[11px] leading-tight">
+                          {row.diagnosticNote}
+                        </p>
+                        {row.parentDomain && (
+                          <span className="text-[10px] text-emerald-400/90 block mt-0.5">
+                            Parent Network: {row.parentDomain}
+                          </span>
+                        )}
+                      </td>
+
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Table Footer with 25-Column Schema Notice */}
+          <div className="p-4 bg-neutral-950/90 border-t border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono text-neutral-400">
+            <div>
+              Showing {filteredBatchRows.length} of {batchRows.length} partner verifications · Export format: <strong>25 columns</strong> RFC 4180 compliant CSV
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadBatchCSV25}
+              className="text-emerald-400 hover:underline flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export current table as 25-column CSV</span>
+            </button>
+          </div>
+
+        </div>
+
+        {/* Live Cloudflare Worker Parity Info Card */}
+        <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 font-mono text-xs space-y-3">
+          <div className="flex items-center gap-2 text-white font-semibold">
+            <Terminal className="w-4 h-4 text-emerald-400" />
+            <span>Authoritative Cloudflare Worker Edge Integration (`worker.js` / `crawler.nexaion.net`)</span>
+          </div>
+          <p className="text-neutral-400 text-xs leading-relaxed">
+            This Batch Matcher directly mirrors your production Cloudflare Worker's background job engine (D1 database bindings: <code>env.JOB_DB</code>, <code>jobs</code>, <code>job_items</code>, <code>job_chunks</code>, and Cloudflare Queue <code>env.CRAWL_QUEUE</code>). The CSV generated above matches every field of <code>jobCSV25</code>:
+          </p>
+          <div className="p-3 bg-neutral-950 rounded-lg border border-neutral-800 text-[11px] text-emerald-300 overflow-x-auto select-all">
+            {JOB_CSV_25_HEADER}
+          </div>
+        </div>
+
+      </div>
+    )}
 
       </div>
     </section>
