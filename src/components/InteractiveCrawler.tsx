@@ -3,11 +3,12 @@ import {
   Search, Globe, ShieldCheck, AlertTriangle, CheckCircle2, Copy, 
   Download, RefreshCw, FileText, ArrowRight, Lock, Bell, Terminal, 
   ExternalLink, Layers, Check, Sparkles, Smartphone, Link2, Send, 
-  Bot, User, Cpu, ArrowUpRight, HelpCircle
+  Bot, User, Cpu, ArrowUpRight, HelpCircle, Network, GitFork, 
+  XCircle, Zap, Info, CornerDownRight, ShieldAlert, ChevronRight
 } from 'lucide-react';
 import { 
-  generateAuditForDomain, CrawlAuditResult, AdsTxtLine, 
-  CrawlType, VerifiedSellerLineResult 
+  generateAuditForDomain, matchSellerLineWithDiagnostics, 
+  CrawlAuditResult, AdsTxtLine, CrawlType, VerifiedSellerLineResult 
 } from '../data/mockCrawlData';
 
 interface ChatMessage {
@@ -21,20 +22,32 @@ export const InteractiveCrawler: React.FC = () => {
   // Crawl configuration
   const [crawlType, setCrawlType] = useState<CrawlType>('web');
   const [domainInput, setDomainInput] = useState('techradar.com');
-  const [targetSellerLine, setTargetSellerLine] = useState('');
+  const [targetSellerLine, setTargetSellerLine] = useState('google.com, pub-4927491028301824, DIRECT, f08c47fec0942fa0');
   const [isCrawling, setIsCrawling] = useState(false);
   const [crawlStep, setCrawlStep] = useState('');
   const [auditResult, setAuditResult] = useState<CrawlAuditResult>(() => generateAuditForDomain('techradar.com', 'web'));
   
   // Terminal tabs
   const [terminalTab, setTerminalTab] = useState<'SPO_AUDIT' | 'LINE_MATCHER' | 'SELLERS_JSON' | 'CLEAN_MANIFEST' | 'EXECUTIVE_BRIEF' | 'AI_COPILOT' | 'WEBHOOK_SETUP'>('SPO_AUDIT');
+  const [spoViewMode, setSpoViewMode] = useState<'GRAPH' | 'TABLE'>('GRAPH');
+  const [hopFilter, setHopFilter] = useState<'ALL' | 'DIRECT' | 'MULTI_HOP'>('ALL');
   const [filterType, setFilterType] = useState<'ALL' | 'DIRECT' | 'RESELLER' | 'WARNINGS'>('ALL');
   const [tableSearch, setTableSearch] = useState('');
   const [copiedManifest, setCopiedManifest] = useState(false);
+  const [copiedFixIndex, setCopiedFixIndex] = useState<number | null>(null);
   const [webhookTestSent, setWebhookTestSent] = useState(false);
 
   // Network mode switch
   const [networkMode, setNetworkMode] = useState<'PROBE' | 'VERIFIED_NETWORK'>('PROBE');
+
+  // Active Fuzzy Diagnostic result
+  const [activeDiagnostic, setActiveDiagnostic] = useState<VerifiedSellerLineResult>(() => 
+    matchSellerLineWithDiagnostics(
+      'google.com, pub-4927491028301824, DIRECT, f08c47fec0942fa0',
+      auditResult.lines,
+      auditResult.parentDomain
+    )
+  );
 
   // AI Diagnostic Co-pilot State (/api/ai/chat)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -68,6 +81,15 @@ export const InteractiveCrawler: React.FC = () => {
   ];
 
   const currentPresets = crawlType === 'web' ? webPresets : crawlType === 'appids' ? appPresets : urlPresets;
+
+  // Seller line diagnostic test presets
+  const sellerLinePresets = [
+    { label: 'Google Direct (Match)', line: 'google.com, pub-4927491028301824, DIRECT, f08c47fec0942fa0' },
+    { label: 'Rubicon Direct (Match)', line: 'rubiconproject.com, 10842, DIRECT, 0bfd66d529a73807' },
+    { label: 'Intentional Relationship Mismatch', line: 'google.com, pub-4927491028301824, RESELLER, f08c47fec0942fa0' },
+    { label: 'Missing Pub ID on Domain', line: 'google.com, pub-9999999999999999, DIRECT' },
+    { label: 'Unlisted Exchange Partner', line: 'unauthorized-arbitrage-ssp.net, 88219, DIRECT' }
+  ];
 
   const handleCrawlTypeChange = (type: CrawlType) => {
     setCrawlType(type);
@@ -111,33 +133,14 @@ export const InteractiveCrawler: React.FC = () => {
     setTimeout(() => {
       const result = generateAuditForDomain(rawInput, crawlType);
       
-      // If a custom target line was supplied, test it against the result
-      if (targetSellerLine.trim()) {
-        const parts = targetSellerLine.split(',').map(s => s.trim());
-        const targetDomain = parts[0] || '';
-        const targetSeller = parts[1] || '';
-        const targetRel = (parts[2] || 'DIRECT').toUpperCase();
-        const targetCert = parts[3] || '';
-
-        const domainFound = result.lines.some(l => l.domain.toLowerCase() === targetDomain.toLowerCase());
-        const sellerIdFound = result.lines.some(l => l.sellerId.toLowerCase() === targetSeller.toLowerCase());
-        const relFound = result.lines.some(l => l.domain.toLowerCase() === targetDomain.toLowerCase() && l.relationship === targetRel);
-        const certFound = targetCert ? result.lines.some(l => l.certificationAuthorityId === targetCert) : true;
-        const isMatch = domainFound && sellerIdFound;
-
-        const verifiedCustom: VerifiedSellerLineResult = {
-          line: targetSellerLine.trim(),
-          present: isMatch,
-          domainFound,
-          sellerIdFound,
-          relationshipFound: relFound,
-          certificationIdFound: certFound,
-          parentPresent: true,
-          result: isMatch ? 'MATCH' : (!sellerIdFound && domainFound) ? 'SELLER_MISMATCH' : 'MISSING'
-        };
-
-        result.verificationResults = [verifiedCustom, ...result.verificationResults.slice(0, 2)];
-      }
+      // Run intelligent diagnostic on current target seller line
+      const diag = matchSellerLineWithDiagnostics(
+        targetSellerLine.trim() || 'google.com, pub-4927491028301824, DIRECT, f08c47fec0942fa0',
+        result.lines,
+        result.parentDomain
+      );
+      setActiveDiagnostic(diag);
+      result.verificationResults = [diag, ...result.verificationResults.slice(0, 2)];
 
       setAuditResult(result);
       setIsCrawling(false);
@@ -153,6 +156,12 @@ export const InteractiveCrawler: React.FC = () => {
         }
       ]);
     }, 1600);
+  };
+
+  const handleTestSellerLine = (line: string) => {
+    setTargetSellerLine(line);
+    const diag = matchSellerLineWithDiagnostics(line, auditResult.lines, auditResult.parentDomain);
+    setActiveDiagnostic(diag);
   };
 
   const handlePresetClick = (target: string) => {
@@ -176,6 +185,12 @@ export const InteractiveCrawler: React.FC = () => {
     navigator.clipboard.writeText(auditResult.cleanManifestText);
     setCopiedManifest(true);
     setTimeout(() => setCopiedManifest(false), 2000);
+  };
+
+  const handleCopyFix = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedFixIndex(index);
+    setTimeout(() => setCopiedFixIndex(null), 2000);
   };
 
   const handleDownloadManifest = () => {
@@ -255,7 +270,7 @@ Inquiries: hello@nexaion.net
       const lower = query.toLowerCase();
 
       if (lower.includes('bid shading') || lower.includes('shading')) {
-        reply = `DSP bid shading algorithms (like The Trade Desk's Koa and Google DV360) apply algorithmic penalties when multiple uncertified reseller paths compete for the exact same impression. For ${auditResult.domain}, we detected ${auditResult.missingCerts} lines lacking certification IDs and ${auditResult.unauthorizedResellersCount} unlisted reseller hops. By deploying the cleaned manifest in Tab 3, your net clearing eCPM will recover by an estimated ${auditResult.estimatedTakeRateLossPct}%.`;
+        reply = `DSP bid shading algorithms (like The Trade Desk's Koa and Google DV360) apply algorithmic penalties when multiple uncertified reseller paths compete for the exact same impression. For ${auditResult.domain}, we detected ${auditResult.missingCerts} lines lacking certification IDs and ${auditResult.unauthorizedResellersCount} unlisted reseller hops. By deploying the cleaned manifest in Tab 4, your net clearing eCPM will recover by an estimated ${auditResult.estimatedTakeRateLossPct}%.`;
       } else if (lower.includes('unauthorized') || lower.includes('reseller') || lower.includes('hops')) {
         reply = `We detected ${auditResult.unauthorizedResellersCount} unauthorized reseller hops on ${auditResult.domain}. These occur when intermediary brokers purchase inventory through multiple reselling tiers (schain > 2) without declaring your publisher account in their Sellers.json. This exposes your media brand to arbitrage and lowers programmatic trust. We recommend revoking these GAM MCM delegations immediately.`;
       } else if (lower.includes('mcm') || lower.includes('google') || lower.includes('parent')) {
@@ -263,7 +278,7 @@ Inquiries: hello@nexaion.net
       } else if (lower.includes('compliance') || lower.includes('1.1') || lower.includes('iab')) {
         reply = `To achieve full IAB Tech Lab Ads.txt 1.1 compliance, ${auditResult.domain} must: 1) Declare 'ownerdomain=${auditResult.ownerDomain || auditResult.domain}', 2) Include valid 16-character TAG Certification Authority hashes on all direct exchange lines (e.g. Google's f08c47fec0942fa0), and 3) Remove deprecated legacy exchange endpoints.`;
       } else {
-        reply = `Based on Nexaion's real-time crawl of ${auditResult.domain} across 6 global worker edge nodes, the supply chain health score is ${auditResult.spoScore}/100. Key recommendation: Eliminate the ${auditResult.unauthorizedResellersCount} unlisted reseller lines and enforce IAB Ads.txt 1.1 manager declarations to secure your auction bids.`;
+        reply = `Based on Nexaion's real-time crawl of ${auditResult.domain} across global worker edge nodes, the supply chain health score is ${auditResult.spoScore}/100. Key recommendation: Eliminate the ${auditResult.unauthorizedResellersCount} unlisted reseller lines and enforce IAB Ads.txt 1.1 manager declarations to secure your auction clearing prices.`;
       }
 
       setChatMessages(prev => [
@@ -296,7 +311,7 @@ Inquiries: hello@nexaion.net
               Programmatic supply chain forensic audit.
             </h2>
             <p className="mt-4 text-base sm:text-lg text-neutral-300">
-              Built for Programmatic Directors, VP of Ad Operations, and Digital Media Conglomerates to identify rogue reseller arbitrage, audit Sellers.json reconciliation, and verify publisher line presence in milliseconds.
+              Built for Programmatic Directors, VP of Ad Operations, and Digital Media Conglomerates to identify rogue reseller arbitrage, visualize supply chain hop topology, and verify seller seats with fuzzy diagnostics.
             </p>
           </div>
 
@@ -470,24 +485,6 @@ Inquiries: hello@nexaion.net
                 )}
               </button>
             </div>
-
-            {/* Optional Specific Seller Line Verifier Input (Real Cloudflare Worker checkOne input) */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between text-xs font-mono text-neutral-400 mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Target Seller Line Matcher (Optional AdOps Line Verification):</span>
-                </span>
-                <span className="text-[11px] text-neutral-500 hidden sm:inline">Format: exchange.com, account_id, DIRECT/RESELLER, cert_id</span>
-              </div>
-              <input
-                type="text"
-                value={targetSellerLine}
-                onChange={(e) => setTargetSellerLine(e.target.value)}
-                placeholder="e.g. google.com, pub-4927491028301824, DIRECT, f08c47fec0942fa0"
-                className="w-full px-3.5 py-2 bg-neutral-950 border border-neutral-800/80 rounded-lg text-xs text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-emerald-500 font-mono"
-              />
-            </div>
           </form>
 
           {/* Preset Domain Selectors (Curated Publisher Benchmarks) */}
@@ -652,7 +649,7 @@ Inquiries: hello@nexaion.net
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>SPO & Line Inspector</span>
+                    <span>SPO & Supply Path Topology</span>
                   </button>
 
                   <button
@@ -664,12 +661,10 @@ Inquiries: hello@nexaion.net
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Seller Line Matcher</span>
-                    {auditResult.verificationResults?.length > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300">
-                        {auditResult.verificationResults.length}
-                      </span>
-                    )}
+                    <span>Seller Line Fuzzy Diagnostics</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300">
+                      checkOne
+                    </span>
                   </button>
 
                   <button
@@ -738,236 +733,505 @@ Inquiries: hello@nexaion.net
                 </div>
               </div>
 
-              {/* TAB 1: SPO & LINE INSPECTOR */}
+              {/* TAB 1: SPO AUDIT & VISUAL HOP TOPOLOGY GRAPH */}
               {terminalTab === 'SPO_AUDIT' && (
                 <div className="p-5 sm:p-6 space-y-6">
                   
-                  {/* Top diagnostics & SSP distribution */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-neutral-950 border border-neutral-800 rounded-xl p-5">
-                      <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-3 font-mono">
-                        Key Audit Findings & Supply Chain Diagnostics
-                      </h4>
-                      <div className="space-y-2.5">
-                        {auditResult.insights.map((insight, idx) => (
-                          <div key={idx} className="flex items-start gap-2.5 text-xs text-neutral-300 font-mono">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
-                            <span>{insight}</span>
-                          </div>
-                        ))}
+                  {/* Top Header with Visual Hop Graph vs Table Toggle */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-neutral-950 border border-neutral-800">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Network className="w-4 h-4 text-emerald-400" />
+                        <h4 className="text-sm font-semibold text-white font-mono">
+                          Supply Path Optimization (SPO) & Hop Topology
+                        </h4>
                       </div>
+                      <p className="text-neutral-400 text-xs mt-1 font-mono">
+                        Visualizing OpenRTB SupplyChain Object (schain) hops, DSP bid shading exposure, and intermediary margin siphoning.
+                      </p>
                     </div>
 
-                    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-5">
-                      <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-3 font-mono">
-                        Exchange SSP Distribution
-                      </h4>
-                      <div className="space-y-2 font-mono text-xs">
-                        {auditResult.exchanges.slice(0, 5).map((exch, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-neutral-300">
-                            <span className="truncate max-w-[140px]">{exch.name}</span>
-                            <span className="text-neutral-400 tabular-nums">
-                              {exch.count} ({exch.direct}D / {exch.reseller}R)
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                    {/* View Mode Toggle: Visual Graph vs Raw Table */}
+                    <div className="flex items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-lg shrink-0 font-mono text-xs">
+                      <button
+                        onClick={() => setSpoViewMode('GRAPH')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors ${
+                          spoViewMode === 'GRAPH'
+                            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+                            : 'text-neutral-400 hover:text-white border border-transparent'
+                        }`}
+                      >
+                        <GitFork className="w-3.5 h-3.5" />
+                        <span>Visual Hop Graph</span>
+                      </button>
+
+                      <button
+                        onClick={() => setSpoViewMode('TABLE')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors ${
+                          spoViewMode === 'TABLE'
+                            ? 'bg-neutral-800 text-white'
+                            : 'text-neutral-400 hover:text-white border border-transparent'
+                        }`}
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>Table Inspector</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Filterable Table */}
-                  <div className="border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950">
-                    <div className="p-4 border-b border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {/* VISUAL HOP GRAPH SUB-VIEW */}
+                  {spoViewMode === 'GRAPH' && (
+                    <div className="space-y-4">
                       
-                      {/* Filter tabs */}
-                      <div className="flex items-center gap-1 p-1 bg-neutral-900 rounded-lg">
-                        <button
-                          onClick={() => setFilterType('ALL')}
-                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                            filterType === 'ALL' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
-                          }`}
-                        >
-                          All Records ({auditResult.lines.length})
-                        </button>
-                        <button
-                          onClick={() => setFilterType('DIRECT')}
-                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                            filterType === 'DIRECT' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
-                          }`}
-                        >
-                          Direct Only
-                        </button>
-                        <button
-                          onClick={() => setFilterType('RESELLER')}
-                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                            filterType === 'RESELLER' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
-                          }`}
-                        >
-                          Resellers
-                        </button>
-                        <button
-                          onClick={() => setFilterType('WARNINGS')}
-                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                            filterType === 'WARNINGS' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
-                          }`}
-                        >
-                          Action Needed
-                        </button>
+                      {/* Filter Chips for Hop Topology */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                        <div className="flex items-center gap-2">
+                          <span className="text-neutral-400">Topology Filter:</span>
+                          <button
+                            onClick={() => setHopFilter('ALL')}
+                            className={`px-2.5 py-1 rounded transition-colors ${
+                              hopFilter === 'ALL' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                            }`}
+                          >
+                            All Active Paths ({auditResult.lines.length})
+                          </button>
+                          <button
+                            onClick={() => setHopFilter('DIRECT')}
+                            className={`px-2.5 py-1 rounded transition-colors ${
+                              hopFilter === 'DIRECT' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'text-neutral-500 hover:text-neutral-300'
+                            }`}
+                          >
+                            Direct 1-Hop Clean ({auditResult.directCount})
+                          </button>
+                          <button
+                            onClick={() => setHopFilter('MULTI_HOP')}
+                            className={`px-2.5 py-1 rounded transition-colors ${
+                              hopFilter === 'MULTI_HOP' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30' : 'text-neutral-500 hover:text-neutral-300'
+                            }`}
+                          >
+                            Multi-Hop Daisy Chains ({auditResult.resellerCount})
+                          </button>
+                        </div>
+
+                        <div className="text-[11px] text-neutral-400">
+                          Estimated Clearing Loss: <strong className="text-amber-400">-{auditResult.estimatedTakeRateLossPct}%</strong>
+                        </div>
                       </div>
 
-                      {/* Search */}
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={tableSearch}
-                          onChange={(e) => setTableSearch(e.target.value)}
-                          placeholder="Search exchange or seller ID..."
-                          className="w-full sm:w-64 px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-lg text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-emerald-500"
-                        />
+                      {/* Interactive Visual Supply Path Nodes */}
+                      <div className="space-y-3">
+                        {auditResult.lines
+                          .filter(l => {
+                            if (hopFilter === 'DIRECT') return l.relationship === 'DIRECT';
+                            if (hopFilter === 'MULTI_HOP') return l.relationship === 'RESELLER' || (l.schainHops && l.schainHops > 1);
+                            return true;
+                          })
+                          .slice(0, 7)
+                          .map((line, idx) => {
+                            const isDirect = line.relationship === 'DIRECT';
+                            const hops = line.schainHops || (isDirect ? 1 : 2);
+                            const takeRateLoss = isDirect ? 0 : hops === 2 ? 4.5 : 18.2;
+                            const addedLatency = isDirect ? 0 : hops === 2 ? 38 : 115;
+
+                            return (
+                              <div 
+                                key={line.id || idx}
+                                className={`p-4 rounded-xl border transition-all ${
+                                  isDirect
+                                    ? 'bg-neutral-950/80 border-emerald-500/20 hover:border-emerald-500/40'
+                                    : hops >= 3
+                                    ? 'bg-rose-950/10 border-rose-500/30 hover:border-rose-500/50'
+                                    : 'bg-neutral-950/80 border-neutral-800 hover:border-neutral-700'
+                                }`}
+                              >
+                                {/* Top Meta Row */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-neutral-800/60 font-mono text-xs">
+                                  <div className="flex items-center gap-2.5">
+                                    <span className={`w-2 h-2 rounded-full ${isDirect ? 'bg-emerald-400' : hops >= 3 ? 'bg-rose-400' : 'bg-amber-400'}`} />
+                                    <span className="text-white font-semibold">{line.domain}</span>
+                                    <span className="text-neutral-500">|</span>
+                                    <span className="text-neutral-300 tabular-nums">Seat: {line.sellerId}</span>
+                                    <span className="text-neutral-500 hidden md:inline">({line.sellerName || 'Verified Publisher'})</span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                      isDirect
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                        : hops >= 3
+                                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                    }`}>
+                                      {isDirect ? 'DIRECT (1 HOP)' : hops >= 3 ? 'DAISY-CHAIN (3+ HOPS)' : 'RESELLER (2 HOPS)'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Graphical Supply Path Node Flow */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs font-mono items-center">
+                                  
+                                  {/* Node 1: Demand Side (DSP) */}
+                                  <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded bg-neutral-800 flex items-center justify-center text-emerald-400 shrink-0 text-[10px] font-bold">
+                                      DSP
+                                    </div>
+                                    <div className="truncate">
+                                      <span className="text-white font-medium block truncate">The Trade Desk / DV360</span>
+                                      <span className="text-[10px] text-neutral-500 block">Bid Valuation: 100%</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Connector Arrow 1 */}
+                                  <div className="hidden md:flex items-center justify-center text-neutral-600">
+                                    <div className="h-0.5 w-full bg-neutral-800 relative flex items-center justify-center">
+                                      <span className="text-[9px] text-neutral-500 px-1 bg-neutral-950 font-mono">
+                                        OpenRTB
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Node 2: SSP / Intermediate Broker */}
+                                  <div className={`p-2.5 rounded-lg border flex items-center gap-2 ${
+                                    isDirect 
+                                      ? 'bg-emerald-950/20 border-emerald-500/30' 
+                                      : 'bg-neutral-900 border-neutral-800'
+                                  }`}>
+                                    <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                                      isDirect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                                    }`}>
+                                      {isDirect ? 'SSP' : 'HOP'}
+                                    </div>
+                                    <div className="truncate">
+                                      <span className="text-white font-medium block truncate">{line.domain}</span>
+                                      <span className="text-[10px] text-neutral-400 block">
+                                        {isDirect ? 'Direct SSP Adapter' : 'Intermediary Reseller'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Node 3: Authoritative Publisher Seat */}
+                                  <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                                      PUB
+                                    </div>
+                                    <div className="truncate">
+                                      <span className="text-white font-medium block truncate">{auditResult.domain}</span>
+                                      <span className="text-[10px] text-emerald-400 block">
+                                        {line.sellerId}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                </div>
+
+                                {/* Quantitative Hop Metrics Footer */}
+                                <div className="mt-3 pt-2.5 border-t border-neutral-800/40 flex flex-wrap items-center justify-between gap-4 font-mono text-[11px]">
+                                  <div className="flex items-center gap-4">
+                                    <span className="text-neutral-400">
+                                      Latency Drag: <strong className={addedLatency === 0 ? 'text-emerald-400' : 'text-amber-400'}>+{addedLatency}ms</strong>
+                                    </span>
+                                    <span className="text-neutral-400">
+                                      Intermediary Siphon: <strong className={takeRateLoss === 0 ? 'text-emerald-400' : 'text-rose-400'}>{takeRateLoss === 0 ? '0%' : `-${takeRateLoss}%`}</strong>
+                                    </span>
+                                  </div>
+
+                                  <div className="text-neutral-400">
+                                    DSP Bid Shading Action:{' '}
+                                    <strong className={isDirect ? 'text-emerald-400' : 'text-amber-400'}>
+                                      {isDirect ? 'Full Value Clearing' : hops >= 3 ? 'Algorithm Shaded (-12%)' : 'Minor Fee Deduction'}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                              </div>
+                            );
+                          })}
                       </div>
+
                     </div>
+                  )}
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs font-mono">
-                        <thead className="bg-neutral-900/60 text-neutral-400 border-b border-neutral-800 uppercase text-[11px]">
-                          <tr>
-                            <th className="py-2.5 px-4">Exchange Domain</th>
-                            <th className="py-2.5 px-4">Publisher Account ID</th>
-                            <th className="py-2.5 px-4">Type</th>
-                            <th className="py-2.5 px-4">Certification ID</th>
-                            <th className="py-2.5 px-4">Sellers.json Entity</th>
-                            <th className="py-2.5 px-4 text-right">Audit Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-800/60 text-neutral-300">
-                          {filteredLines.length === 0 ? (
+                  {/* TABLE VIEW (Detailed Line Inspector) */}
+                  {spoViewMode === 'TABLE' && (
+                    <div className="border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950">
+                      <div className="p-4 border-b border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-1 p-1 bg-neutral-900 rounded-lg">
+                          <button
+                            onClick={() => setFilterType('ALL')}
+                            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                              filterType === 'ALL' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
+                            }`}
+                          >
+                            All Records ({auditResult.lines.length})
+                          </button>
+                          <button
+                            onClick={() => setFilterType('DIRECT')}
+                            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                              filterType === 'DIRECT' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
+                            }`}
+                          >
+                            Direct Only
+                          </button>
+                          <button
+                            onClick={() => setFilterType('RESELLER')}
+                            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                              filterType === 'RESELLER' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
+                            }`}
+                          >
+                            Resellers
+                          </button>
+                          <button
+                            onClick={() => setFilterType('WARNINGS')}
+                            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                              filterType === 'WARNINGS' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
+                            }`}
+                          >
+                            Action Needed
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={tableSearch}
+                            onChange={(e) => setTableSearch(e.target.value)}
+                            placeholder="Search exchange or seller ID..."
+                            className="w-full sm:w-64 px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-lg text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-neutral-900/60 text-neutral-400 border-b border-neutral-800 uppercase text-[11px]">
                             <tr>
-                              <td colSpan={6} className="py-8 text-center text-neutral-500">
-                                No records match the active criteria.
-                              </td>
+                              <th className="py-2.5 px-4">Exchange Domain</th>
+                              <th className="py-2.5 px-4">Publisher Account ID</th>
+                              <th className="py-2.5 px-4">Type</th>
+                              <th className="py-2.5 px-4">Certification ID</th>
+                              <th className="py-2.5 px-4">Sellers.json Entity</th>
+                              <th className="py-2.5 px-4 text-right">Audit Status</th>
                             </tr>
-                          ) : (
-                            filteredLines.map((line) => (
-                              <tr key={line.id} className="hover:bg-neutral-900/40 transition-colors">
-                                <td className="py-3 px-4 text-white font-medium">{line.domain}</td>
-                                <td className="py-3 px-4 tabular-nums text-neutral-300">{line.sellerId}</td>
-                                <td className="py-3 px-4">
-                                  <span className={line.relationship === 'DIRECT' ? 'text-emerald-400' : 'text-neutral-400'}>
-                                    {line.relationship}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 text-neutral-500">
-                                  {line.certificationAuthorityId || '—'}
-                                </td>
-                                <td className="py-3 px-4 text-neutral-300">
-                                  {line.sellerName || 'Verified Publisher'}
-                                </td>
-                                <td className="py-3 px-4 text-right">
-                                  {line.status === 'valid' && (
-                                    <span className="text-emerald-400">Verified Direct</span>
-                                  )}
-                                  {line.status === 'warning' && (
-                                    <span className="text-amber-400">{line.notes || 'Notice'}</span>
-                                  )}
-                                  {line.status === 'deprecated' && (
-                                    <span className="text-rose-400">{line.notes || 'Prune'}</span>
-                                  )}
+                          </thead>
+                          <tbody className="divide-y divide-neutral-800/60 text-neutral-300">
+                            {filteredLines.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="py-8 text-center text-neutral-500">
+                                  No records match the active criteria.
                                 </td>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                            ) : (
+                              filteredLines.map((line) => (
+                                <tr key={line.id} className="hover:bg-neutral-900/40 transition-colors">
+                                  <td className="py-3 px-4 text-white font-medium">{line.domain}</td>
+                                  <td className="py-3 px-4 tabular-nums text-neutral-300">{line.sellerId}</td>
+                                  <td className="py-3 px-4">
+                                    <span className={line.relationship === 'DIRECT' ? 'text-emerald-400' : 'text-neutral-400'}>
+                                      {line.relationship}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-neutral-500">
+                                    {line.certificationAuthorityId || '—'}
+                                  </td>
+                                  <td className="py-3 px-4 text-neutral-300">
+                                    {line.sellerName || 'Verified Publisher'}
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    {line.status === 'valid' && (
+                                      <span className="text-emerald-400">Verified Direct</span>
+                                    )}
+                                    {line.status === 'warning' && (
+                                      <span className="text-amber-400">{line.notes || 'Notice'}</span>
+                                    )}
+                                    {line.status === 'deprecated' && (
+                                      <span className="text-rose-400">{line.notes || 'Prune'}</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
                 </div>
               )}
 
-              {/* TAB 2: SELLER LINE MATCHER (Real Cloudflare Worker checkOne seller line verification) */}
+              {/* TAB 2: SELLER LINE FUZZY DIAGNOSTICS (Real Cloudflare Worker checkOne seller line verification) */}
               {terminalTab === 'LINE_MATCHER' && (
                 <div className="p-5 sm:p-6 space-y-6 font-mono text-xs">
-                  <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div className="p-5 rounded-xl bg-neutral-950 border border-neutral-800 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h4 className="text-sm font-semibold text-white">Target Seller Line Verification Engine</h4>
-                        <p className="text-neutral-400 text-xs mt-0.5">
-                          Direct output of Cloudflare Worker <code className="text-emerald-400">checkOne(publisherInput, lines, env, crawlType)</code>. Validates specific SSP publisher seats against authoritative crawl manifests.
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <h4 className="text-sm font-semibold text-white">Target Seller Line Fuzzy Diagnostics</h4>
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                            Worker: checkOne()
+                          </span>
+                        </div>
+                        <p className="text-neutral-400 text-xs mt-1">
+                          Test specific SSP publisher seats against <code className="text-emerald-400">{auditResult.domain}</code> to diagnose relationship conflicts, missing TAG cert IDs, or unlisted accounts.
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-neutral-400 text-xs">Matched:</span>
-                        <span className="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
-                          {auditResult.presentCount} present / {auditResult.missingCount} missing
-                        </span>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-neutral-500">Manifest:</span>
+                        <span className="text-white font-bold">{auditResult.totalLines} lines indexed</span>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      {auditResult.verificationResults && auditResult.verificationResults.length > 0 ? (
-                        auditResult.verificationResults.map((v, i) => (
-                          <div 
-                            key={i} 
-                            className={`p-4 rounded-lg border transition-all ${
-                              v.result === 'MATCH'
-                                ? 'bg-emerald-950/20 border-emerald-500/40'
-                                : v.result === 'SELLER_MISMATCH'
-                                ? 'bg-amber-950/20 border-amber-500/40'
-                                : 'bg-rose-950/20 border-rose-500/40'
-                            }`}
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 pb-2 border-b border-neutral-800/60">
-                              <span className="font-semibold text-white break-all">{v.line}</span>
-                              <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase self-start sm:self-auto ${
-                                v.result === 'MATCH'
-                                  ? 'bg-emerald-400 text-neutral-950'
-                                  : v.result === 'SELLER_MISMATCH'
-                                  ? 'bg-amber-400 text-neutral-950'
-                                  : 'bg-rose-400 text-neutral-950'
-                              }`}>
-                                {v.result}
-                              </span>
-                            </div>
+                    {/* Interactive Input Form */}
+                    <div className="space-y-2 pt-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={targetSellerLine}
+                          onChange={(e) => setTargetSellerLine(e.target.value)}
+                          placeholder="e.g. google.com, pub-4927491028301824, DIRECT, f08c47fec0942fa0"
+                          className="flex-1 px-3.5 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleTestSellerLine(targetSellerLine)}
+                          className="px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 font-semibold rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                          <span>Run Diagnostic</span>
+                        </button>
+                      </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px] pt-1">
-                              <div className="p-2 bg-neutral-900 rounded">
-                                <span className="text-neutral-500 block">Domain Found</span>
-                                <span className={v.domainFound ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                                  {v.domainFound ? '✓ TRUE' : '✗ FALSE'}
-                                </span>
-                              </div>
-                              <div className="p-2 bg-neutral-900 rounded">
-                                <span className="text-neutral-500 block">Seller ID Match</span>
-                                <span className={v.sellerIdFound ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                                  {v.sellerIdFound ? '✓ TRUE' : '✗ FALSE'}
-                                </span>
-                              </div>
-                              <div className="p-2 bg-neutral-900 rounded">
-                                <span className="text-neutral-500 block">Relationship</span>
-                                <span className={v.relationshipFound ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                                  {v.relationshipFound ? '✓ MATCH' : '⚠ MISMATCH'}
-                                </span>
-                              </div>
-                              <div className="p-2 bg-neutral-900 rounded">
-                                <span className="text-neutral-500 block">Certification ID</span>
-                                <span className={v.certificationIdFound ? 'text-emerald-400 font-bold' : 'text-neutral-400'}>
-                                  {v.certificationIdFound ? '✓ VERIFIED' : '— OPTIONAL'}
-                                </span>
-                              </div>
-                              <div className="p-2 bg-neutral-900 rounded">
-                                <span className="text-neutral-500 block">Parent Domain</span>
-                                <span className={v.parentPresent ? 'text-emerald-400 font-bold' : 'text-neutral-400'}>
-                                  {v.parentPresent ? '✓ LINKED' : '— ROOT'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-6 text-center text-neutral-500 bg-neutral-900 rounded-lg">
-                          Enter target seller lines in the matcher input above to run line verification.
-                        </div>
-                      )}
+                      {/* Quick Diagnostic Test Presets */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                        <span className="text-neutral-500">AdOps Test Presets:</span>
+                        {sellerLinePresets.map((p, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => handleTestSellerLine(p.line)}
+                            className="px-2.5 py-1 rounded bg-neutral-900 border border-neutral-800 hover:border-emerald-500/50 hover:text-emerald-300 text-neutral-300 transition-colors"
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    {/* ACTIVE FUZZY DIAGNOSTIC RESULT CARD */}
+                    {activeDiagnostic && (
+                      <div className={`mt-6 p-5 rounded-xl border transition-all ${
+                        activeDiagnostic.result === 'MATCH'
+                          ? 'bg-emerald-950/20 border-emerald-500/40'
+                          : activeDiagnostic.result === 'RELATION_MISMATCH'
+                          ? 'bg-amber-950/20 border-amber-500/40'
+                          : activeDiagnostic.result === 'SELLER_MISMATCH'
+                          ? 'bg-rose-950/20 border-rose-500/40'
+                          : 'bg-neutral-900 border-neutral-800'
+                      }`}>
+                        
+                        {/* Result Header Badge */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-neutral-800/80">
+                          <div>
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider block mb-0.5">Tested Seller Record</span>
+                            <span className="text-sm font-semibold text-white break-all">{activeDiagnostic.line}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-md text-xs font-bold uppercase ${
+                              activeDiagnostic.result === 'MATCH'
+                                ? 'bg-emerald-400 text-neutral-950'
+                                : activeDiagnostic.result === 'RELATION_MISMATCH'
+                                ? 'bg-amber-400 text-neutral-950'
+                                : 'bg-rose-400 text-neutral-950'
+                            }`}>
+                              {activeDiagnostic.result === 'MATCH' ? '✓ VERIFIED DIRECT MATCH' : activeDiagnostic.result}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 5 Technical Match Flags */}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px] mb-4">
+                          <div className="p-2.5 bg-neutral-950 rounded-lg border border-neutral-800/80">
+                            <span className="text-neutral-500 block mb-0.5">Exchange Domain</span>
+                            <span className={activeDiagnostic.domainFound ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                              {activeDiagnostic.domainFound ? '✓ FOUND' : '✗ UNLISTED'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-neutral-950 rounded-lg border border-neutral-800/80">
+                            <span className="text-neutral-500 block mb-0.5">Seller Account ID</span>
+                            <span className={activeDiagnostic.sellerIdFound ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                              {activeDiagnostic.sellerIdFound ? '✓ MATCHED' : '✗ NOT FOUND'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-neutral-950 rounded-lg border border-neutral-800/80">
+                            <span className="text-neutral-500 block mb-0.5">Relationship</span>
+                            <span className={activeDiagnostic.relationshipFound ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                              {activeDiagnostic.relationshipFound ? '✓ MATCH' : '⚠ CONFLICT'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-neutral-950 rounded-lg border border-neutral-800/80">
+                            <span className="text-neutral-500 block mb-0.5">TAG Cert Hash</span>
+                            <span className={activeDiagnostic.certificationIdFound ? 'text-emerald-400 font-bold' : 'text-neutral-400'}>
+                              {activeDiagnostic.certificationIdFound ? '✓ CERTIFIED' : '— OPTIONAL'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-neutral-950 rounded-lg border border-neutral-800/80">
+                            <span className="text-neutral-500 block mb-0.5">MCM Parent Domain</span>
+                            <span className={activeDiagnostic.parentPresent ? 'text-emerald-400 font-bold' : 'text-neutral-400'}>
+                              {activeDiagnostic.parentPresent ? '✓ LINKED' : '— ROOT'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Plain-English Technical Diagnosis */}
+                        <div className="space-y-3 pt-2">
+                          <div className="p-3.5 rounded-lg bg-neutral-950 border border-neutral-800/80">
+                            <div className="flex items-center gap-2 text-white font-semibold mb-1">
+                              <Info className="w-4 h-4 text-emerald-400" />
+                              <span>Crawler Technical Diagnostic:</span>
+                            </div>
+                            <p className="text-neutral-300 text-xs leading-relaxed">
+                              {activeDiagnostic.diagnosticExplanation}
+                            </p>
+                          </div>
+
+                          <div className="p-3.5 rounded-lg bg-neutral-950 border border-neutral-800/80">
+                            <div className="flex items-center gap-2 text-white font-semibold mb-1">
+                              <ShieldAlert className="w-4 h-4 text-amber-400" />
+                              <span>DSP Buy-Side Auction & Clearing Impact:</span>
+                            </div>
+                            <p className="text-neutral-300 text-xs leading-relaxed">
+                              {activeDiagnostic.dspImpactNotice}
+                            </p>
+                          </div>
+
+                          {/* Actionable Copyable Fix */}
+                          {activeDiagnostic.suggestedCorrection && (
+                            <div className="p-3.5 rounded-lg bg-neutral-950 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div>
+                                <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider block mb-0.5">
+                                  Recommended Authoritative Correction:
+                                </span>
+                                <code className="text-white text-xs select-all">
+                                  {activeDiagnostic.suggestedCorrection}
+                                </code>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyFix(activeDiagnostic.suggestedCorrection || '', 99)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 font-semibold text-xs rounded-md transition-colors shrink-0"
+                              >
+                                {copiedFixIndex === 99 ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                <span>{copiedFixIndex === 99 ? 'Copied Line' : 'Copy Fixed Line'}</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
