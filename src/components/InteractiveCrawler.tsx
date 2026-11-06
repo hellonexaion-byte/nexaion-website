@@ -37,9 +37,6 @@ export const InteractiveCrawler: React.FC = () => {
   const [copiedFixIndex, setCopiedFixIndex] = useState<number | null>(null);
   const [webhookTestSent, setWebhookTestSent] = useState(false);
 
-  // Network mode switch
-  const [networkMode, setNetworkMode] = useState<'PROBE' | 'VERIFIED_NETWORK'>('PROBE');
-
   // Active Fuzzy Diagnostic result
   const [activeDiagnostic, setActiveDiagnostic] = useState<VerifiedSellerLineResult>(() => 
     matchSellerLineWithDiagnostics(
@@ -315,46 +312,7 @@ Inquiries: hello@nexaion.net
             </p>
           </div>
 
-          {/* Operating Mode Selector (Functional Segmented Control) */}
-          <div className="flex items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-lg shrink-0">
-            <button
-              onClick={() => setNetworkMode('PROBE')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                networkMode === 'PROBE' ? 'bg-neutral-800 text-white shadow-sm' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Domain Probe
-            </button>
-            <button
-              onClick={() => setNetworkMode('VERIFIED_NETWORK')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                networkMode === 'VERIFIED_NETWORK' ? 'bg-neutral-800 text-white shadow-sm' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              <Lock className="w-3 h-3 text-emerald-400" />
-              <span>Verified Network</span>
-            </button>
-          </div>
         </div>
-
-        {/* Verified Network Banner if in Verified Mode */}
-        {networkMode === 'VERIFIED_NETWORK' && (
-          <div className="mb-8 p-4 rounded-xl bg-neutral-900/90 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 font-mono text-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-white font-semibold block">Enterprise Workspace: Global Media Network (Tier-1 Dedicated)</span>
-                <span className="text-neutral-400 text-[11px]">DNS TXT verified · 85 domains active · Private Crawl Cluster US-East-4</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-neutral-400">Next Scheduled Crawl: in 14m</span>
-              <span className="text-emerald-400">· Webhooks Active</span>
-            </div>
-          </div>
-        )}
 
         {/* Live Cloudflare Production Notice */}
         <div className="mb-6 p-4 rounded-xl bg-neutral-900 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 font-mono text-xs shadow-lg">
