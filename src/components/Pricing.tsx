@@ -12,8 +12,8 @@ export const Pricing: React.FC<PricingProps> = ({ onOpenAuditModal }) => {
     {
       name: 'Publisher Pro',
       audience: 'For independent publishers & boutique ad networks',
-      monthlyPrice: 490,
-      annualPrice: 390,
+      monthlyPrice: 150,
+      annualPrice: 120,
       description: 'Automated ads.txt monitoring and basic supply path auditing for focused portfolios.',
       features: [
         'Up to 15 monitored publisher domains',
@@ -29,8 +29,8 @@ export const Pricing: React.FC<PricingProps> = ({ onOpenAuditModal }) => {
     {
       name: 'Media Group',
       audience: 'For scaling media networks & programmatic agencies',
-      monthlyPrice: 1490,
-      annualPrice: 1190,
+      monthlyPrice: 490,
+      annualPrice: 390,
       description: 'Full-spectrum programmatic telemetry, hourly crawling, and automated API webhooks.',
       features: [
         'Up to 100 monitored domains + App-Ads.txt',
@@ -47,8 +47,8 @@ export const Pricing: React.FC<PricingProps> = ({ onOpenAuditModal }) => {
     {
       name: 'Enterprise Network',
       audience: 'For global publishing conglomerates & Tier-1 SSP/DSPs',
-      monthlyPrice: 3800,
-      annualPrice: 3200,
+      monthlyPrice: 800,
+      annualPrice: 640,
       description: 'Custom crawler firehose, bespoke IVT detection, and dedicated AdOps solutions engineer.',
       features: [
         'Unlimited publisher domains & mobile apps',
