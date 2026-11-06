@@ -773,7 +773,7 @@ export interface BatchCheckRow {
   finalUrl: string;
   status: 'VALID' | 'PARTIAL' | 'NOT_FOUND' | 'BLOCKED' | 'TLS_RECOVERED';
   line: string;
-  result: 'FOUND' | 'MISSING' | 'RELATION_MISMATCH' | 'SELLER_MISMATCH' | 'UNVERIFIED';
+  result: 'FOUND' | 'MISSING' | 'RELATION_MISMATCH' | 'UNVERIFIED';
   domainFound: boolean;
   sellerIdFound: boolean;
   relationshipFound: boolean;
@@ -846,7 +846,7 @@ export function evaluateBatchItem(
   const domainFound = sellerRecords.length > 0;
   const sellerIdFound = sellerRecords.length > 0;
   const relationshipFound = relationshipRecords.length > 0;
-  const certificationIdFound = hasCertificationId ? certificationRecords.length > 0 : null;
+  const certificationIdFound = hasCertificationId ? (sellerRecords.length > 0 ? certificationRecords.length > 0 : false) : null;
 
   let result: BatchCheckRow['result'] = 'MISSING';
   let diagnosticNote = '';
@@ -858,19 +858,22 @@ export function evaluateBatchItem(
     result = 'FOUND';
     diagnosticNote = `Domain and Seller ID verified. Declared as ${parsedTarget.relationship}. Certification hash omitted in origin file.`;
   } else if (sellerRecords.length > 0) {
+    // True relationship mismatch: seat ID was found under domain, but declared as opposite relationship
     result = 'RELATION_MISMATCH';
     diagnosticNote = `Relationship discrepancy: Account ${parsedTarget.sellerId} is declared as ${sellerRecords[0].relationship} on ${parsedTarget.domain} (tested ${parsedTarget.relationship}).`;
-  } else if (domainRecords.length > 0) {
-    result = 'SELLER_MISMATCH';
-    diagnosticNote = `Exchange domain ${parsedTarget.domain} is present, but partner seat ID ${parsedTarget.sellerId} is not registered on this publisher.`;
   } else {
+    // Consistently NOT FOUND whenever the seller seat is missing from the exchange declaration
     result = 'MISSING';
-    diagnosticNote = `Exchange domain ${parsedTarget.domain} does not exist in ${domain}'s manifest.`;
+    if (domainRecords.length > 0) {
+      diagnosticNote = `Exchange domain ${parsedTarget.domain} is present in manifest, but partner seat ID ${parsedTarget.sellerId} is not registered on this publisher.`;
+    } else {
+      diagnosticNote = `Exchange domain ${parsedTarget.domain} does not exist in ${domain}'s manifest.`;
+    }
   }
 
   const rowStatus: BatchCheckRow['status'] = 
     result === 'FOUND' ? 'VALID' : 
-    (result === 'RELATION_MISMATCH' || result === 'SELLER_MISMATCH') ? 'PARTIAL' : 'NOT_FOUND';
+    result === 'RELATION_MISMATCH' ? 'PARTIAL' : 'NOT_FOUND';
 
   return {
     input: cleanInput,

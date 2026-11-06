@@ -187,16 +187,15 @@ export const InteractiveCrawler: React.FC = () => {
     if (!matchesSearch) return false;
 
     if (batchTableFilter === 'FOUND') return row.result === 'FOUND';
-    if (batchTableFilter === 'DISCREPANCY') return row.result === 'RELATION_MISMATCH' || row.result === 'SELLER_MISMATCH';
+    if (batchTableFilter === 'DISCREPANCY') return row.result === 'RELATION_MISMATCH';
     if (batchTableFilter === 'MISSING') return row.result === 'MISSING';
     return true;
   });
 
   const batchFoundCount = batchRows.filter(r => r.result === 'FOUND').length;
   const batchRelationMismatchCount = batchRows.filter(r => r.result === 'RELATION_MISMATCH').length;
-  const batchSellerMismatchCount = batchRows.filter(r => r.result === 'SELLER_MISMATCH').length;
   const batchMissingCount = batchRows.filter(r => r.result === 'MISSING').length;
-  const batchDiscrepancyCount = batchRelationMismatchCount + batchSellerMismatchCount;
+  const batchDiscrepancyCount = batchRelationMismatchCount;
 
   const handleRunAudit = (overrideTarget?: string) => {
     const rawInput = (overrideTarget || domainInput).trim();
@@ -1887,22 +1886,22 @@ Inquiries: hello@nexaion.net
           </div>
 
           <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-5 shadow-lg">
-            <span className="text-xs text-neutral-400 block mb-1 font-mono">Discrepancy / Mismatch</span>
+            <span className="text-xs text-neutral-400 block mb-1 font-mono">Relation Discrepancy</span>
             <div className="text-2xl font-bold text-amber-400 font-mono tabular-nums">
-              {batchDiscrepancyCount}
+              {batchRelationMismatchCount}
             </div>
             <span className="text-xs text-neutral-500 mt-1 block font-mono">
-              {batchRelationMismatchCount} relation swaps · {batchSellerMismatchCount} missing seat IDs
+              DIRECT vs RESELLER relationship conflict
             </span>
           </div>
 
           <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-5 shadow-lg">
-            <span className="text-xs text-neutral-400 block mb-1 font-mono">Missing / Unlisted</span>
+            <span className="text-xs text-neutral-400 block mb-1 font-mono">Not Found on Origin</span>
             <div className="text-2xl font-bold text-rose-400 font-mono tabular-nums">
               {batchMissingCount}
             </div>
             <span className="text-xs text-rose-500/80 mt-1 block font-mono">
-              Exchange completely unlisted on origin
+              Partner seat ID missing from publisher ads.txt
             </span>
           </div>
         </div>
@@ -1949,7 +1948,7 @@ Inquiries: hello@nexaion.net
                     batchTableFilter === 'DISCREPANCY' ? 'bg-amber-500/10 text-amber-300 font-semibold' : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  Discrepancies ({batchDiscrepancyCount})
+                  Discrepancies ({batchRelationMismatchCount})
                 </button>
                 <button
                   onClick={() => setBatchTableFilter('MISSING')}
@@ -2002,7 +2001,6 @@ Inquiries: hello@nexaion.net
                 {filteredBatchRows.map((row, idx) => {
                   const isFound = row.result === 'FOUND';
                   const isRelationMismatch = row.result === 'RELATION_MISMATCH';
-                  const isSellerMismatch = row.result === 'SELLER_MISMATCH';
                   const isMissing = row.result === 'MISSING';
 
                   return (
@@ -2014,7 +2012,7 @@ Inquiries: hello@nexaion.net
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${
-                            isFound ? 'bg-emerald-400' : isRelationMismatch || isSellerMismatch ? 'bg-amber-400' : 'bg-rose-400'
+                            isFound ? 'bg-emerald-400' : isRelationMismatch ? 'bg-amber-400' : 'bg-rose-400'
                           }`} />
                           <div>
                             <div className="text-white font-bold">{row.input}</div>
@@ -2031,7 +2029,7 @@ Inquiries: hello@nexaion.net
                         </div>
                       </td>
 
-                      {/* Overall Result Badge */}
+                      {/* Overall Result Badge - Consistently FOUND, RELATION MISMATCH, or NOT FOUND */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         {isFound && (
                           <span className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
@@ -2041,11 +2039,6 @@ Inquiries: hello@nexaion.net
                         {isRelationMismatch && (
                           <span className="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
                             RELATION MISMATCH
-                          </span>
-                        )}
-                        {isSellerMismatch && (
-                          <span className="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                            SELLER ID MISMATCH
                           </span>
                         )}
                         {isMissing && (
@@ -2083,30 +2076,42 @@ Inquiries: hello@nexaion.net
 
                       {/* 3. Relationship Match Badge */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
-                        {row.relationshipFound ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
-                            MATCH
-                          </span>
+                        {row.sellerIdFound ? (
+                          row.relationshipFound ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                              MATCH
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400">
+                              MISMATCH
+                            </span>
+                          )
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400">
-                            MISMATCH
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400">
+                            MISSING
                           </span>
                         )}
                       </td>
 
                       {/* 4. Certification ID Badge */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
-                        {row.certificationIdFound === true ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
-                            FOUND
-                          </span>
-                        ) : row.certificationIdFound === false ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400">
-                            MISSING
-                          </span>
-                        ) : (
+                        {row.certificationIdFound === null ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-neutral-800 text-neutral-400">
                             NOT PROVIDED
+                          </span>
+                        ) : row.sellerIdFound ? (
+                          row.certificationIdFound ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                              FOUND
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400">
+                              MISSING
+                            </span>
+                          )
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400">
+                            MISSING
                           </span>
                         )}
                       </td>
