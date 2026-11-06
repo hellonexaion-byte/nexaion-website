@@ -42,10 +42,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuditModal }) => {
             Intelligence Console
           </a>
           <a 
-            href="#case-studies" 
+            href="#threat-vectors" 
             className="hover:text-emerald-400 transition-colors whitespace-nowrap shrink-0"
           >
-            Case Studies
+            Threat Vectors
           </a>
           <a 
             href="#about" 
@@ -102,11 +102,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuditModal }) => {
               Intelligence Console
             </a>
             <a 
-              href="#case-studies" 
+              href="#threat-vectors" 
               onClick={() => setMobileMenuOpen(false)}
               className="py-1 hover:text-emerald-400 transition-colors"
             >
-              Case Studies
+              Threat Vectors
             </a>
             <a 
               href="#about" 
