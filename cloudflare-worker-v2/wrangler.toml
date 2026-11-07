@@ -1,0 +1,17 @@
+name = "nexaion-crawler-v2"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Subdomain Route on Cloudflare:
+# You can bind this to a new subdomain (e.g. audit.nexaion.net, beta.crawler.nexaion.net, or v2.nexaion.net)
+# in your Cloudflare Dashboard under Workers & Pages > nexaion-crawler-v2 > Settings > Triggers > Custom Domains.
+#
+# routes = [
+#   { pattern = "audit.nexaion.net/*", zone_name = "nexaion.net" }
+# ]
+
+[vars]
+ENVIRONMENT = "production"
+ENABLE_PUBLIC_AUDIT = "true"
+MAX_CONCURRENT_FETCHES = "20"

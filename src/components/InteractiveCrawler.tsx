@@ -5,7 +5,7 @@ import {
   ExternalLink, Layers, Check, Sparkles, Smartphone, Link2, Send, 
   Bot, User, Cpu, ArrowUpRight, HelpCircle, Network, GitFork, 
   XCircle, Zap, Info, CornerDownRight, ShieldAlert, ChevronRight,
-  Building2, Play, Filter, FileSpreadsheet
+  Building2, Play, Filter, FileSpreadsheet, Mail, X
 } from 'lucide-react';
 import { 
   generateAuditForDomain, matchSellerLineWithDiagnostics, 
@@ -48,6 +48,8 @@ export const InteractiveCrawler: React.FC = () => {
   const [batchSearchTerm, setBatchSearchTerm] = useState('');
   const [downloadedCsvNotice, setDownloadedCsvNotice] = useState(false);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
+  const [outreachRow, setOutreachRow] = useState<BatchCheckRow | null>(null);
+  const [copiedOutreach, setCopiedOutreach] = useState(false);
   const [auditResult, setAuditResult] = useState<CrawlAuditResult>(() => generateAuditForDomain('techradar.com', 'web'));
   
   // Terminal tabs
@@ -2132,6 +2134,19 @@ Inquiries: hello@nexaion.net
                             Parent Network: {row.parentDomain}
                           </span>
                         )}
+                        {!isFound && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOutreachRow(row);
+                              setCopiedOutreach(false);
+                            }}
+                            className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-400 hover:text-emerald-300 hover:underline"
+                          >
+                            <Mail className="w-3 h-3" />
+                            <span>1-Click Remediation Outreach</span>
+                          </button>
+                        )}
                       </td>
 
                     </tr>
@@ -2174,6 +2189,127 @@ Inquiries: hello@nexaion.net
 
       </div>
     )}
+
+      {/* 1-Click Partner Remediation Outreach Modal */}
+      {outreachRow && (
+        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-mono">Partner Remediation Outreach</h3>
+                  <p className="text-xs text-neutral-400 font-mono">Ready-to-send publisher notification</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOutreachRow(null)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-neutral-400 block mb-1">Publisher Contact Target</label>
+                <div className="p-2.5 bg-neutral-950 border border-neutral-800 rounded-lg text-white">
+                  adops@{outreachRow.developerDomain} · monetization@{outreachRow.developerDomain}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-neutral-400 block mb-1">Email Subject</label>
+                <div className="p-2.5 bg-neutral-950 border border-neutral-800 rounded-lg text-white">
+                  Action Required: Missing ads.txt declaration for {outreachRow.developerDomain}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-neutral-400 block mb-1">Email Body (Pre-Formatted Copy)</label>
+                <textarea
+                  readOnly
+                  rows={8}
+                  className="w-full p-3 bg-neutral-950 border border-neutral-800 rounded-lg text-neutral-300 font-mono text-xs leading-relaxed resize-none focus:outline-none select-all"
+                  value={`Hello AdOps / Monetization Team at ${outreachRow.developerDomain},
+
+During our supply-path compliance verification on Nexaion, we observed that our authorized partner seller seat is currently missing or mismatched in your ads.txt manifest.
+
+Missing Declaration Line:
+${outreachRow.line}
+
+Checked URL: ${outreachRow.checkedUrl}
+Verification Result: ${outreachRow.result}
+Diagnostic Note: ${outreachRow.diagnosticNote}
+
+Under IAB Tech Lab Ads.txt 1.1 enforcement, programmatic DSPs shade bids or withhold spend on impressions lacking authorized seller declarations.
+
+Please deploy this line to your authoritative manifest at your earliest convenience to prevent revenue suppression.
+
+Best regards,
+Partner Monetization Operations · Nexaion Supply Verification`}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-neutral-800">
+              <span className="text-[11px] font-mono text-neutral-500">
+                Compliance: IAB Tech Lab Ads.txt 1.1
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Hello AdOps / Monetization Team at ${outreachRow.developerDomain},
+
+During our supply-path compliance verification on Nexaion, we observed that our authorized partner seller seat is currently missing or mismatched in your ads.txt manifest.
+
+Missing Declaration Line:
+${outreachRow.line}
+
+Checked URL: ${outreachRow.checkedUrl}
+Verification Result: ${outreachRow.result}
+Diagnostic Note: ${outreachRow.diagnosticNote}
+
+Under IAB Tech Lab Ads.txt 1.1 enforcement, programmatic DSPs shade bids or withhold spend on impressions lacking authorized seller declarations.
+
+Please deploy this line to your authoritative manifest at your earliest convenience to prevent revenue suppression.
+
+Best regards,
+Partner Monetization Operations · Nexaion Supply Verification`;
+                    navigator.clipboard.writeText(text);
+                    setCopiedOutreach(true);
+                    setTimeout(() => setCopiedOutreach(false), 2500);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 font-bold font-mono text-xs rounded-lg transition-colors"
+                >
+                  {copiedOutreach ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Copied to Clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Email Copy</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOutreachRow(null)}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-mono text-xs rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </section>
