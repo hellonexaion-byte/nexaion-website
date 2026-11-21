@@ -1,0 +1,70 @@
+/* NEXAION V8 — one visual layer, existing JSX and routes unchanged */
+html.nxa-cinematic,html.nxa-cinematic body {max-width:100%;overflow-x:clip}
+html.nxa-cinematic body {
+  position:relative!important;
+  background:radial-gradient(ellipse at 78% 29%,rgba(7,113,119,.16),transparent 45%),
+             radial-gradient(ellipse at 90% 39%,rgba(230,90,17,.07),transparent 38%),
+             #041417!important;color:#f2e9df;
+}
+/* This asset comes directly from the approved reference artwork. */
+html.nxa-cinematic body::before {
+  content:""!important;display:block!important;position:absolute!important;
+  top:100px!important;right:0!important;left:auto!important;
+  width:min(57vw,875px)!important;height:auto!important;aspect-ratio:786/563!important;
+  z-index:2!important;pointer-events:none!important;
+  background:url('/assets/nexaion-exact-ribbon-v7.png') right top/100% 100% no-repeat!important;
+  opacity:1!important;transform:none!important;filter:none!important;
+  -webkit-mask-image:linear-gradient(to right,transparent 0%,black 23%),linear-gradient(to bottom,black 0%,black 80%,transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(to right,transparent 0%,black 23%),linear-gradient(to bottom,black 0%,black 80%,transparent 100%);
+  mask-composite:intersect;
+}
+html.nxa-cinematic body::after {display:none!important;content:none!important}
+html.nxa-cinematic .nxa-ribbon-art,
+html.nxa-cinematic .nxa-cinematic-hero::before,
+html.nxa-cinematic .nxa-cinematic-hero::after {display:none!important;content:none!important}
+html.nxa-cinematic .nxa-cinematic-hero {
+  position:relative!important;min-height:0!important;
+  background:transparent!important;isolation:auto!important;z-index:auto!important;
+}
+/* Do not trap the navigation beneath the decorative background */
+html.nxa-cinematic body > #root {position:relative!important;z-index:auto!important;isolation:auto!important}
+html.nxa-cinematic .nxa-site-nav {
+  position:relative!important;z-index:20!important;
+  background:linear-gradient(115deg,rgba(7,22,26,.96),rgba(4,17,20,.96))!important;
+  border:1px solid rgba(128,171,173,.27)!important;border-radius:15px!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.13),0 9px 30px rgba(0,0,0,.27)!important;
+  backdrop-filter:blur(12px);
+}
+html.nxa-cinematic .nxa-site-nav a {color:#f2ebe1!important}
+html.nxa-cinematic .nxa-brand-img {
+  display:block!important;width:clamp(178px,19vw,274px)!important;
+  max-height:55px!important;height:auto!important;object-fit:contain!important;background:transparent!important;
+}
+html.nxa-cinematic .nxa-cinematic-hero > * {position:relative;z-index:4}
+html.nxa-cinematic .nxa-cinematic-hero h1 {
+  max-width:770px;color:#f4ede3!important;
+  background:linear-gradient(165deg,#fffefa 0%,#f4ebe0 49%,#c7c2bd 100%);
+  background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1.09;letter-spacing:-.037em;
+}
+html.nxa-cinematic .nxa-cinematic-hero p {color:#e8e0da!important}
+html.nxa-cinematic .nxa-primary-cta {
+  background:linear-gradient(165deg,#ffb678 0%,#fc8d38 32%,#ed6b15 70%,#ba3e09 100%)!important;
+  border:1px solid #f7a45a!important;color:#fff!important;border-radius:10px!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.52),0 0 19px rgba(246,112,34,.3),0 5px 12px #0005!important;
+}
+html.nxa-cinematic .nxa-secondary-cta {
+  background:linear-gradient(145deg,#1a2f33,#081b1e)!important;
+  color:#f1e9df!important;border:1px solid #709da0!important;border-radius:10px!important;
+  box-shadow:inset 0 1px rgba(233,255,255,.16),0 0 12px rgba(5,166,186,.12)!important;
+}
+@media(max-width:950px){
+ html.nxa-cinematic body::before {top:130px!important;width:70vw!important;opacity:.65!important}
+ html.nxa-cinematic .nxa-cinematic-hero h1{max-width:680px}
+}
+@media(max-width:700px){
+ html.nxa-cinematic body::before {top:150px!important;width:95vw!important;opacity:.25!important}
+ html.nxa-cinematic .nxa-brand-img{width:166px!important}
+ html.nxa-cinematic .nxa-cinematic-hero h1{max-width:100%}
+}

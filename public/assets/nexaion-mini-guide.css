@@ -1,0 +1,19 @@
+/* Approved monochrome mini assistant: navigation guide only */
+/* Lightweight, functioning website guide; not an AI bot. */
+#nxa9-assistant {position:fixed;right:15px;bottom:12px;z-index:2147483000;font-family:inherit;pointer-events:none}
+#nxa9-assistant * {box-sizing:border-box}
+#nxa9-assistant .nxa9-launch {pointer-events:auto;display:block;margin-left:auto;width:92px;height:112px;border:0;outline-offset:3px;cursor:pointer;background:transparent;padding:0;filter:drop-shadow(0 6px 10px #0009);transition:transform .2s}
+#nxa9-assistant .nxa9-launch:hover {transform:translateY(-5px)}
+#nxa9-assistant .nxa9-launch img {width:100%;height:100%;object-fit:contain}
+#nxa9-assistant .nxa9-dialog {pointer-events:auto;position:absolute;bottom:118px;right:0;width:min(346px,calc(100vw - 22px));max-height:min(510px,70vh);overflow:auto;border:1px solid #607c82;border-radius:17px;background:linear-gradient(160deg,#203036,#0b191e 52%,#071317);box-shadow:0 18px 65px #000c,inset 0 1px #ffffff25;padding:18px;color:#f5eee7}
+#nxa9-assistant .nxa9-dialog[hidden] {display:none!important}
+#nxa9-assistant .nxa9-top {display:flex;align-items:center;justify-content:space-between;gap:12px}
+#nxa9-assistant .nxa9-top strong {font-size:15px;letter-spacing:.02em}
+#nxa9-assistant .nxa9-close {background:#27363b;color:#eae8e1;border:1px solid #63777d;border-radius:8px;cursor:pointer;padding:5px 9px}
+#nxa9-assistant p {color:#b4c6c6;font-size:12px;line-height:1.55;margin:8px 0 12px}
+#nxa9-assistant .nxa9-links {display:grid;gap:7px}
+#nxa9-assistant .nxa9-links button {text-align:left;border:1px solid #415960;background:#17272c;color:#e9e7de;border-radius:9px;padding:10px 12px;cursor:pointer;font-size:12px}
+#nxa9-assistant .nxa9-links button:hover {background:#28424a;border-color:#52c5c9}
+#nxa9-assistant .nxa9-foot {margin-top:11px;color:#96b1b3;font-size:10px}
+@media(max-width:700px){#nxa9-assistant{right:8px;bottom:6px}#nxa9-assistant .nxa9-launch{width:67px;height:83px}#nxa9-assistant .nxa9-dialog{bottom:90px}html.nxa-cinematic .nxa-btf-section::before{inset:0}}
+@media(prefers-reduced-motion:reduce){#nxa9-assistant .nxa9-launch{transition:none}}
